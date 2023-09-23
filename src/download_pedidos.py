@@ -32,17 +32,10 @@ class Amazon:
         return True
     def get_detailsOrderInfo(self):
         self.page.wait_for_selector(detallesPedidos.products_list.selector)
-        price=self.page.query_selector(detallesPedidos.priceOfProduct.selector).inner_text()
-        condition=self.page.query_selector(detallesPedidos.conditionOfProduct.selector).inner_text()
-        seller=self.page.query_selector(detallesPedidos.sellerOfProduct.selector).inner_text()
-        quantity=self.page.query_selector(detallesPedidos.quantityOfProduct.selector).inner_text()
-        name=self.page.query_selector(detallesPedidos.nameOfProduct.selector).inner_text()
         date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct.selector).inner_text()
-        directions_list=self.page.query_selector_all(detallesPedidos.directions_list.selector)
-
-        digitCards=self.page.query_selector_all(detallesPedidos.digitCards.selector)
+        directions_list=self.page.query_selector_all(detallesPedidos.directions_list.selector).all_inner_text()
+        digitCards=self.page.query_selector(detallesPedidos.digitCards.selector).inner_text()
         summaryBill=self.page.query_selector_all(detallesPedidos.summaryConcept_list.selector)
-
         products_list=self.page.query_selector_all(detallesPedidos.products_list.selector)
         for product in products_list:
             priceProduct=product.query_selector(detallesPedidos.priceOfProduct.selector).inner_text()
