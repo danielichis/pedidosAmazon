@@ -1,4 +1,4 @@
-from utils.selectores import localizador
+from src.utils.selectores import localizador
 
 directions_list=localizador("Lista de direcciones","div[class='displayAddressDiv'] li","css")
 digitCards=localizador("Tarjetas de digitos","h5+div img+span","css")
