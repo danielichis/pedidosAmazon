@@ -18,7 +18,10 @@ class configData:
                     self.user_data_dir=os.path.normpath(line.replace("USER_DATA_DIR=","").replace("\n","")).strip("\"")
                 elif line.startswith("STORAGE_PATH"):
                     self.storage_path=line.replace("STORAGE_PATH=","").replace("\n","").strip("\"")
-
+                elif line.startswith("DESDE"):
+                    self.dateFrom=line.replace("DESDE=","").replace("\n","").strip("\"")
+                elif line.startswith("HASTA"):
+                    self.dateTo=line.replace("HASTA=","").replace("\n","").strip("\"")
 settingsData=configData()
 
 
