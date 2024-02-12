@@ -1,5 +1,5 @@
 import re
-from src.interfaces import mainView,homeLogin,pedidosOverview
+from pedidosAmazon.src.interfaces import mainView,homeLogin,pedidosOverview
 
     
 def get_courier(adressName):

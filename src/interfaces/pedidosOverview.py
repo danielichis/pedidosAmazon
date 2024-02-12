@@ -1,4 +1,4 @@
-from src.utils.selectores import localizador
+from pedidosAmazon.src.utils.selectores import localizador
 
 button_next=localizador("Boton siguiente","li[class='a-last']","css")
 orderCards_list=localizador("Tarjetas de pedidos","div[class*='js-order-card']","css")

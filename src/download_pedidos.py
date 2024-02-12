@@ -1,32 +1,50 @@
 from datetime import datetime
-from src.utils.apiGsheet import updateGshhet
+from pedidosAmazon.src.utils.apiGsheet import updateGshhet
 import csv
 import os
-from playwright.sync_api import sync_playwright
-from utils.readconfig import settingsData as stt
+from playwright.sync_api import sync_playwright,expect
+from pedidosAmazon.src.utils.readconfig import settingsData as stt
 from tqdm import tqdm
-from src.interfaces import mainView,homeLogin,pedidosOverview,detallesPedidos,trakingView
-from src.utils.functions import previusUrl
+from pedidosAmazon.src.interfaces import mainView,homeLogin,pedidosOverview,detallesPedidos,trakingView
+from pedidosAmazon.src.utils.functions import previusUrl
 from PIL import Image
 import time
 import locale
 
 class Amazon:
-    def __init__(self) -> None:
+    def __init__(self,dateConfigSheet=None) -> None:
         self.p= sync_playwright().start()
         self.browser = self.p.chromium.launch_persistent_context(user_data_dir=stt.user_data_dir,headless=stt.headless)
         self.page = self.browser.new_page()
+        self.page.set_default_timeout(10000)
         self.urlMain=stt.URLS_LINKS["URL-MAIN"]
         self.urlSignin=stt.URLS_LINKS["URL-SIGIN"]
         self.urlOrders=stt.URLS_LINKS["URL-ORDERS"]
+        self.dateConfigSheet=dateConfigSheet
+        print("---->INICIANDO<----")
+        print(self.dateConfigSheet)
         self.dateConfig={"DESDE":stt.dateFrom,"HASTA":stt.dateTo}
+        self.set_dateConfigSheet()
         self.ScrapedData=[]
+
+    def set_dateConfigSheet(self):
+        if self.dateConfigSheet==None:
+            self.dateConfigSheet=self.dateConfig
     def go_to_login(self):
         self.page.goto(self.urlSignin)
         self.page.wait_for_url(self.urlSignin)
+        print("---->LOGEADO CORRECTAMENTE<----")
 
     def go_to_orders(self):
         self.page.locator(mainView.button_orders.selector).click()
+        time.sleep(3)
+        if len(self.page.query_selector_all("span[class='a-size-base transaction-approval-word-break']"))>0:
+            print(f"La cuenta {self.acount} pide codigo de verificacion")
+            #hacer click en el boton de enviar codigo
+            exit()
+        if len(self.page.query_selector_all("input[id='signInSubmit']"))>0:
+            print(f"La cuenta {self.acount} pide ingresar contraseña nuevamente")
+            exit()
         self.page.wait_for_selector(pedidosOverview.orderCards_list.selector)
     def get_pdf(self):
         self.page.goto(self.UrlPdf,wait_until="load")
@@ -51,8 +69,8 @@ class Amazon:
         #conver string to date object
         locale.setlocale(locale.LC_TIME, "es_ES.UTF-8")
         dateofCard_date = datetime.strptime(dateofCard, '%d de %B de %Y')
-        dateFrom_date = datetime.strptime(self.dateConfig["DESDE"], '%d/%m/%Y')
-        dateTo_date = datetime.strptime(self.dateConfig["HASTA"], '%d/%m/%Y')
+        dateFrom_date = datetime.strptime(self.dateConfigSheet["DESDE"], '%d/%m/%Y')
+        dateTo_date = datetime.strptime(self.dateConfigSheet["HASTA"], '%d/%m/%Y')
         
         if dateofCard_date<dateFrom_date:
             r="stop"
@@ -74,15 +92,15 @@ class Amazon:
         obj_bill["Cupón/Puntos"]=0
         for key in list_keys_discount:
             if key in keysDiscount:
-                discount=obj_bill[key].replace("$","")
+                discount=obj_bill[key].replace("$","").replace(",","")
                 obj_bill["Cupón/Puntos"]=round(obj_bill["Cupón/Puntos"]+float(discount),3)
         finallyBill={
-            "Productos":float(obj_bill["Productos"].replace("$","").replace("\n","")),
-            "Envío":float(obj_bill["Envío"].replace("$","").replace("\n","")),
+            "Productos":float(obj_bill["Productos"].replace("$","").replace("\n","").replace(",","")),
+            "Envío":float(obj_bill["Envío"].replace("$","").replace("\n","").replace(",","")),
             "Descuentos":float(obj_bill["Cupón/Puntos"]),
-            "Total antes de impuestos:":float(obj_bill["Total antes de impuestos"].replace("$","").replace("\n","")),
-            "Impuestos":float(obj_bill["Impuestos"].replace("$","").replace("\n","")),
-            "Total (I.V.A. Incluido)":float(obj_bill["Total (I.V.A. Incluido)"].replace("$","").replace("\n","")),
+            "Total antes de impuestos:":float(obj_bill["Total antes de impuestos"].replace("$","").replace("\n","").replace(",","")),
+            "Impuestos":float(obj_bill["Impuestos"].replace("$","").replace("\n","").replace(",","")),
+            "Total (I.V.A. Incluido)":float(obj_bill["Total (I.V.A. Incluido)"].replace("$","").replace("\n","").replace(",","")),
         }
         self.info_bill=finallyBill
         
@@ -91,7 +109,7 @@ class Amazon:
         self.dataProducts=[]
         for product in self.products_list:
             self.priceProduct=product.locator(detallesPedidos.priceOfProduct.selector).inner_text()
-            self.priceProduct=float(self.priceProduct.replace("$","").replace("\n",""))
+            self.priceProduct=float(self.priceProduct.replace("$","").replace("\n","").replace(",",""))
             self.conditionProduct=product.locator(detallesPedidos.conditionOfProduct.selector).inner_text()
             self.sellerProduct=product.locator(detallesPedidos.sellerOfProduct.selector).inner_text()
             try:
@@ -259,6 +277,16 @@ class Amazon:
             selectorAcount=f"//div[contains(text(),'{account}')]"
             self.acount=account
             self.page.locator(selectorAcount).click()
+            #wait load page
+            self.page.wait_for_load_state("load")
+            time.sleep(3)
+            if len(self.page.query_selector_all("span[class='a-size-base transaction-approval-word-break']"))>0:
+                print(f"La cuenta {self.acount} pide codigo de verificacion")
+                #hacer click en el boton de enviar codigo
+                continue
+            if len(self.page.query_selector_all("input[id='signInSubmit']"))>0:
+                print(f"La cuenta {self.acount} pide ingresar contraseña nuevamente")
+                continue
             self.page.wait_for_selector(mainView.button_orders.selector)
             print(f"leyendo en cuenta:{self.acount}")
             self.scrap_account()
@@ -268,12 +296,15 @@ class Amazon:
         self.page.close()
         self.browser.close()
         self.p.stop()
-
-if __name__ == "__main__":
+def get_pedidos_amazon():
     amazonPage=Amazon()
     amazonPage.go_to_login()
     amazonPage.scrap_info()
-    #amazonPage.save_to_csv()
     amazonPage.end()
+    return "terminado"
+if __name__ == "__main__":
+    get_pedidos_amazon()
+
+    
 
 

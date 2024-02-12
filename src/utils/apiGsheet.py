@@ -1,6 +1,5 @@
 import requests
 
-
 def send_last_report():
     return [{
         "nombre": "Juan",
@@ -27,11 +26,14 @@ def send_last_report():
 
 
 def updateGshhet(data=None):
-    url="https://script.google.com/macros/s/AKfycbxFVqbvPRV9eVlf-OfTzNGAcuXVDRTYN5YxdndwyTrIxL6Myw_lE7N9f5udjzstSWy7/exec"
+    url="https://script.google.com/macros/s/AKfycbx5jvG8goRcMwd7qOw74cNs-2Fcp2WuC1MmiSh1Ht6WLS5y9tFpsg4xDWKfeGA5S7hYUg/exec"
     response = requests.post(url, json=data)
     postData=response.text
     #print(postData)
     return postData
+def updateGshhet_test():
+    data=send_last_report()
+    print(updateGshhet(data))
 
 if __name__ == "__main__":
-    updateGshhet()
+    updateGshhet_test()
