@@ -30,7 +30,7 @@ def updateGshhet(data=None):
     url="https://script.google.com/macros/s/AKfycbxFVqbvPRV9eVlf-OfTzNGAcuXVDRTYN5YxdndwyTrIxL6Myw_lE7N9f5udjzstSWy7/exec"
     response = requests.post(url, json=data)
     postData=response.text
-    print(postData)
+    #print(postData)
     return postData
 
 if __name__ == "__main__":

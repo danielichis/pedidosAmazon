@@ -19,7 +19,7 @@ def get_courier(adressName):
     return courier
 
 def previusUrl(z):
-    return f"https://www.amazon.com/-/es/gp/your-account/order-history/ref=ppx_yo_dt_b_pagination_{z-2}_{z-1}?ie=UTF8&orderFilter=year-2023&search=&startIndex={(z-2)*10}"
+    return f"https://www.amazon.com/-/es/gp/your-account/order-history/ref=ppx_yo_dt_b_pagination_{z-2}_{z-1}?ie=UTF8&orderFilter=year-2024&search=&startIndex={(z-2)*10}"
 def get_pdf(page):
     page.pdf(path="pdf.pdf")
 
