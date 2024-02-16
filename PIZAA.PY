@@ -11,8 +11,11 @@ class Pizza:
         self.dateFrom_date = datetime.strptime(self.dateConfig["DESDE"], '%d/%m/%Y')
         self.dateTo_date = datetime.strptime(self.dateConfig["HASTA"], '%d de %B de %Y')
         self.dateofDetails_date = datetime.strptime(self.dateConfig["fechaDetalle"].replace("Pedido el ",""), '%d de %B de %Y')
-p= Pizza()
-print(p.dateFrom_date)
-print(p.dateTo_date)
-print(p.dateofDetails_date)
-print("asdasdasdas")
+# p= Pizza()
+# print(p.dateFrom_date)
+# print(p.dateTo_date)
+# print(p.dateofDetails_date)
+# print("asdasdasdas")
+        
+for i in range(1):
+    print(i)

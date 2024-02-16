@@ -4,6 +4,7 @@ import csv
 import os
 from playwright.sync_api import sync_playwright,expect
 from pedidosAmazon.src.utils.readconfig import settingsData as stt
+from pedidosAmazon.src.utils.autoWaits import retry_on_exception
 from tqdm import tqdm
 from pedidosAmazon.src.interfaces import mainView,homeLogin,pedidosOverview,detallesPedidos,trakingView
 from pedidosAmazon.src.utils.functions import previusUrl
@@ -21,6 +22,7 @@ class Amazon:
         self.urlSignin=stt.URLS_LINKS["URL-SIGIN"]
         self.urlOrders=stt.URLS_LINKS["URL-ORDERS"]
         self.dateConfigSheet=dateConfigSheet
+        self.orderCards_list=None
         print("---->INICIANDO<----")
         print(self.dateConfigSheet)
         self.dateConfig={"DESDE":stt.dateFrom,"HASTA":stt.dateTo}
@@ -88,7 +90,7 @@ class Amazon:
             obj_bill[key]=value
         keysDiscount=list(obj_bill.keys())
 
-        list_keys_discount=["Buy any 4, Save 5%","Deal of the Day","Your Coupon Savings","Promotion Applied","Envío gratis","Free Shipping","Promotional credit"]
+        list_keys_discount=["Buy any 4, Save 5%","Deal of the Day","Your Coupon Savings","Promotion Applied","Envío gratis","Free Shipping","Promotional credit","Saldo Amazon"]
         obj_bill["Cupón/Puntos"]=0
         for key in list_keys_discount:
             if key in keysDiscount:
@@ -197,8 +199,10 @@ class Amazon:
         self.page.wait_for_selector(detallesPedidos.products_list.selector)
         self.order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct.selector).inner_text()
         self.get_adress_info()
-        
-        self.digitCards=self.page.locator("li>span:has(img)").inner_text()
+        try:
+            self.digitCards=self.page.locator("li>span:has(img)").inner_text()
+        except:
+            self.digitCards="Sin digitos"
         self.get_bill_info()
         self.UrlPdf=self.page.locator("//span[@class='a-button-inner']/a[contains(text(), 'Ver o Imprimir Recibo')]").get_attribute("href")    
         self.get_shipping_info()
@@ -212,9 +216,23 @@ class Amazon:
             writer.writeheader()
             for data in self.ScrapedData:
                 writer.writerow(data)
+
+    def esperar_lista_paginas(self):
+        max_retries=5
+        retrie=0
+        delay=1
+        self.orderCards_list=self.page.locator(pedidosOverview.orderCards_list.selector).all()
+        while retrie<max_retries:
+            self.orderCards_list=self.page.locator(pedidosOverview.orderCards_list.selector).all()
+            if len(self.orderCards_list)==10:
+                break
+            time.sleep(delay)
+            retrie+=1
+            print("esperando lista de pedidos")
+        
     def scrap_page(self):
         print("------------leyendo pagina")
-        self.page.wait_for_selector(pedidosOverview.orderCards_list.selector)
+        self.esperar_lista_paginas()
         orderCards_list=self.page.locator(pedidosOverview.orderCards_list.selector).all()
         ordersLinks=[orderCard.locator("//a[contains(text(),'Ver detalles del pedido')]").get_attribute("href") for orderCard in orderCards_list]
         ordersIds=[orderCard.locator(pedidosOverview.orderIdOfCard.selector).inner_text() for orderCard in orderCards_list]
@@ -235,10 +253,10 @@ class Amazon:
                 continue
             print(f"leyendo pedido ...")
             link=self.urlMain+link            
-            time.sleep(1)
+            #time.sleep(1)
             self.page.goto(link,wait_until="load")
             self.get_detailsOrderInfo()
-            #self.view="detallesPedidos"
+            self.view="detallesPedidos"
             
     def switch_to_tab(self,tab):
         if tab>1:
@@ -262,11 +280,13 @@ class Amazon:
             if self.status=="stop":
                 print(f"terminando de leer pedidos en cuenta {self.acount}")
                 break
-            time.sleep(1)
             tab+=1
             if self.view!="pedidosOverview":
                 Url=previusUrl(tab)
                 self.page.goto(Url,wait_until="load")
+                self.page.wait_for_load_state("load")
+                self.page.wait_for_load_state("networkidle")
+                self.page.wait_for_load_state("domcontentloaded")
                 self.view="pedidosOverview"
     def scrap_info(self):
         self.page.wait_for_selector(homeLogin.buttons_cuentas.selector)
