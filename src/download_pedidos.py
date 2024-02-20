@@ -303,10 +303,10 @@ class Amazon:
             if len(self.page.query_selector_all("span[class='a-size-base transaction-approval-word-break']"))>0:
                 print(f"La cuenta {self.acount} pide codigo de verificacion")
                 #hacer click en el boton de enviar codigo
-                continue
+                exit()
             if len(self.page.query_selector_all("input[id='signInSubmit']"))>0:
                 print(f"La cuenta {self.acount} pide ingresar contraseña nuevamente")
-                continue
+                exit()
             self.page.wait_for_selector(mainView.button_orders.selector)
             print(f"leyendo en cuenta:{self.acount}")
             self.scrap_account()
