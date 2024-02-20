@@ -2,3 +2,5 @@ state*.json
 venv
 #ignore download files but keep the directory
 downloads/
+settings.ini
+
