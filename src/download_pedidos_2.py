@@ -110,25 +110,45 @@ class Amazon:
         #another idea
         #self.page.locator("div[class='a-fixed-left-grid-inner']").inner_text()
         self.products_list=self.shipping.locator(detallesPedidos.products_list.selector).all()
+        #self.products_list=self.shippings
+        #studycase 112-7005829-6740208
+        #self.products_list=[product.inner_text().split("\n") for product in self.shippings]
         self.dataProducts=[]
         for product in self.products_list:
-            self.priceProduct=product.locator(detallesPedidos.priceOfProduct.selector).inner_text()
-            self.priceProduct=float(self.priceProduct.replace("$","").replace("\n","").replace(",",""))
+            product_text=product.inner_text().split("\n")
+            if len(product_text)==6:
+                offset=1
+                self.quantityProduct=product_text[0]
+                print("Cantidad del producto mayor a 1")
+            else:
+                offset=0
+                self.quantityProduct=1
+
+
+            # if len(product_text)==5:
+            #     offset=0
+            #     self.quantityProduct=1
+
+            #self.priceProduct=product.locator(detallesPedidos.priceOfProduct.selector).inner_text()
+            #self.priceProduct=float(self.priceProduct.replace("$","").replace("\n","").replace(",",""))
+            self.priceProduct=product_text[2+offset].replace("US$","").replace("$","")
             try:
                 self.conditionProduct="-"
                 #self.conditionProduct=product.locator(detallesPedidos.conditionOfProduct.selector).inner_text()
             except Exception as e:
                 print(str(e))
                 self.conditionProduct="-"
-            self.sellerProduct=product.locator(detallesPedidos.sellerOfProduct.selector).inner_text()
-            try:
-                #timeout 3s
-                self.page.wait_for_selector(detallesPedidos.quantityOfProduct.selector,timeout=1000)
-                self.quantityProduct=product.locator(detallesPedidos.quantityOfProduct.selector).inner_text()
-            except Exception as e:
-                print("error en cantidad:"+str(e))
-                self.quantityProduct=1
-            self.nameProduct=product.locator("div[class*='a-fixed-left-grid'] div[class*='a-row']:first-child>a").inner_text()
+            #self.sellerProduct=product.locator(detallesPedidos.sellerOfProduct.selector).inner_text()
+            self.sellerProduct=product_text[1+offset].replace("Vendido por:","").strip()
+            # try:
+            #     #timeout 3s
+            #     self.page.wait_for_selector(detallesPedidos.quantityOfProduct.selector,timeout=1000)
+            #     self.quantityProduct=product.locator(detallesPedidos.quantityOfProduct.selector).inner_text()
+            # except Exception as e:
+            #     print("error en cantidad:"+str(e))
+            #     self.quantityProduct=1
+            #self.nameProduct=product.locator("div[class*='a-fixed-left-grid'] div[class*='a-row']:first-child>a").inner_text()
+            self.nameProduct=product_text[0+offset]
             products_dict={"nameProduct":self.nameProduct,"priceProduct":self.priceProduct,"conditionProduct":self.conditionProduct,"sellerProduct":self.sellerProduct,"quantityProduct":self.quantityProduct}
             self.dataProducts.append(products_dict)
 
@@ -159,17 +179,23 @@ class Amazon:
         
     def get_shipping_info(self):
         try:
-            self.page.wait_for_selector("div[class*='a-box shipment']")
-            self.shippings=self.page.locator("div[class*='a-box shipment']").all()
+            self.page.wait_for_selector("div[class='a-fixed-left-grid-inner']")
+            self.shippings=self.page.locator("div[data-component='shipments'] div[class='a-box-inner']").all()
+            #self.shippings=self.page.locator("div[class='a-fixed-left-grid-inner']").all()
+            # self.page.wait_for_selector("div[class='a-box shipment']")
+            # self.shippings=self.page.locator("div[class*='a-box shipment']").all()
         except:
             self.page.wait_for_selector("div[class*='a-box-group']")
             self.shippings=self.page.locator("div[class*='a-box-group']").all()
 
         self.dataShippings=[]
+        if len(self.shippings)==2:
+            print("2 envíos")
         for self.shipping in self.shippings:
             self.get_products_list()
             try:
-                self.urlTraking=self.shipping.locator("span[class*='track-package-button'] a").get_attribute("href")
+                #self.urlTraking=self.shipping.locator("span[class*='track-package-button'] a").get_attribute("href")
+                self.urlTraking=self.shipping.get_by_text("Rastrear paquete").get_attribute("href")
                 self.urlTraking=self.urlMain+self.urlTraking
             except:
                 self.urlTraking="sin url"
@@ -212,7 +238,8 @@ class Amazon:
         self.order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct.selector).inner_text()
         self.get_adress_info()
         try:
-            self.digitCards=self.page.locator("li>span:has(img)").inner_text()
+            #self.digitCards=self.page.locator("li>span:has(img)").inner_text()
+            self.digitCards=self.page.locator("li>span:has(img)").first.inner_text()
         except:
             self.digitCards="Sin digitos"
         self.get_bill_info()
@@ -232,7 +259,7 @@ class Amazon:
     def esperar_lista_paginas(self):
         max_retries=5
         retrie=0
-        delay=1
+        delay=2
         self.orderCards_list=self.page.locator(pedidosOverview.orderCards_list.selector).all()
         while retrie<max_retries:
             self.orderCards_list=self.page.locator(pedidosOverview.orderCards_list.selector).all()
@@ -314,7 +341,7 @@ class Amazon:
             time.sleep(3)
             #goto spanish language account
             #self.page.goto("https://www.amazon.com/?ref_=nav_youraccount_switchacct&language=es_US")
-            self.page.wait_for_load_state("networkidle")
+            #self.page.wait_for_load_state("networkidle")
             self.page.wait_for_load_state("load")
             time.sleep(3)
             if len(self.page.query_selector_all("span[class='a-size-base transaction-approval-word-break']"))>0:

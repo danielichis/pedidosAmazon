@@ -1,0 +1,18 @@
+Logistica Bot
+
+-Check if it is better to extract all the text or return to locators when extracting product info
+-Fix capture of number of produts
+-Fix tracking of order
+-Capture Tracking ID
+-Fix format of dollars when capturing prices
+-Check capture of discounts
+
+#Extraction order of text
+'2\nArmaf Odyssey Mandarin Sky for Men Eau de Parfum Spray, 3.4 Ounce\nVendido por: Villa Fragante\nUS$30.90\nUS$30.90\nComprar nuevamente'
+
+-Validate
+-Arrange meeting with Richard to explain and to check what else
+
+Lister
+
+-Importado en vez de Generico
