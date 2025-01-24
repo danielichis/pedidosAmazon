@@ -53,7 +53,7 @@ class Amazon:
         if len(self.page.query_selector_all("input[id='signInSubmit']"))>0:
             print(f"La cuenta {self.acount} pide ingresar contraseña nuevamente")
             exit()
-        self.page.wait_for_selector(pedidosOverview.orderCards_list.selector)
+        self.page.wait_for_selector(pedidosOverview.orderCards_list_bs.selector)
     def get_pdf(self):
         self.page.goto(self.UrlPdf,wait_until="load")
         self.page.wait_for_selector("//a[text()='Resumen del pedido']")
@@ -225,7 +225,8 @@ class Amazon:
     def get_shipping_info(self):
         try:
             self.page.wait_for_selector("div[class='a-fixed-left-grid-inner']")
-            self.shippings=self.page.locator("div[data-component='shipments'] div[class='a-box-inner']").all()
+            self.shippings=self.page.locator("div[class*='a-box shipment'] div[class='a-box-inner']").all()
+            #self.shippings=self.page.locator("div[data-component='shipments'] div[class='a-box-inner']").all()
             #self.shippings=self.page.locator("div[class='a-fixed-left-grid-inner']").all()
             # self.page.wait_for_selector("div[class='a-box shipment']")
             # self.shippings=self.page.locator("div[class*='a-box shipment']").all()
@@ -289,10 +290,11 @@ class Amazon:
         except:
             self.digitCards="Sin digitos"
         self.get_bill_info()
-        self.UrlPdf=self.page.locator("//span[@class='a-button-inner']/a[contains(text(), 'Ver o Imprimir Recibo')]").get_attribute("href")    
+        #self.UrlPdf=self.page.locator("//span[@class='a-button-inner']/a[contains(text(), 'Ver o Imprimir Recibo')]").get_attribute("href")    
+        self.UrlPdf=self.page.locator("//span[@class='a-list-item']/a[contains(text(), 'Resumen de pedido para imprimir')]").get_attribute("href") 
         self.get_shipping_info()
         self.UrlPdf=self.urlMain+self.UrlPdf
-        self.get_pdf()
+        #self.get_pdf()
         self.createData()
     
     def save_to_csv(self):
@@ -306,7 +308,7 @@ class Amazon:
         max_retries=5
         retrie=0
         delay=2
-        self.orderCards_list=self.page.locator(pedidosOverview.orderCards_list.selector).all()
+        self.orderCards_list=self.page.locator(pedidosOverview.orderCards_list_bs.selector).all()
         while retrie<max_retries:
             self.orderCards_list=self.page.locator(pedidosOverview.orderCards_list.selector).all()
             if len(self.orderCards_list)==10:
@@ -318,10 +320,17 @@ class Amazon:
     def scrap_page(self):
         print("------------leyendo pagina")
         self.esperar_lista_paginas()
-        orderCards_list=self.page.locator(pedidosOverview.orderCards_list.selector).all()
-        ordersLinks=[orderCard.locator("//a[contains(text(),'Ver detalles del pedido')]").get_attribute("href") for orderCard in orderCards_list]
-        ordersIds=[orderCard.locator(pedidosOverview.orderIdOfCard.selector).inner_text() for orderCard in orderCards_list]
-        ordersDates=[orderCard.locator(pedidosOverview.dateofCard.selector).inner_text() for orderCard in orderCards_list]
+        orderCards_list=self.page.locator(pedidosOverview.orderCards_list_bs.selector).all()
+        #ordersLinks=[orderCard.locator("//a[contains(text(),'Ver detalles del pedido')]").get_attribute("href") for orderCard in orderCards_list]
+        ordersLinks=[]
+        for orderCard in orderCards_list:
+            try:
+                orderLink=orderCard.locator("//a[contains(text(),'Ver detalles del pedido')]").get_attribute("href")
+                ordersLinks.append(orderLink)
+            except:
+                print("Orden no tiene link de rastreo,pasando a la siguiente")
+        ordersIds=[orderCard.locator(pedidosOverview.orderIdOfCard_bs.selector).inner_text().replace("Pedido # ","") for orderCard in orderCards_list]
+        ordersDates=[orderCard.locator(pedidosOverview.dateofCard_bs.selector).inner_text() for orderCard in orderCards_list]
         print(f"numero de pedidos:{len(orderCards_list)}")
         for i,link in enumerate(ordersLinks):
             dateofCard=ordersDates[i]
@@ -353,13 +362,16 @@ class Amazon:
     def scrap_account(self):
         self.go_to_orders()
         tab=1
-        self.page.wait_for_selector(pedidosOverview.button_next.selector)
+        try:
+            self.page.wait_for_selector(pedidosOverview.button_next.selector)
+        except:
+            pass
         self.view="pedidosOverview"
         self.status="scrap"
         while True:
-            if len(self.page.query_selector_all(pedidosOverview.button_next.selector))==0:
-                print(f"SIN BOTON NEXT,terminando de leer pedidos en cuenta {self.acount}")
-                break
+            # if len(self.page.query_selector_all(pedidosOverview.button_next.selector))==0:
+            #     print(f"SIN BOTON NEXT,terminando de leer pedidos en cuenta {self.acount}")
+            #     break
             self.switch_to_tab(tab)
             self.scrap_page()
             if self.status=="stop":
@@ -399,10 +411,10 @@ class Amazon:
                 exit()
 
             if account=='seguimientomkp@unaluka.com':
-                #self.page.wait_for_selector("link", name="Hola Gianfranco Cuenta de").click()
                 pass
             else:
-                self.page.wait_for_selector(mainView.button_orders.selector)
+                raise Exception("No es la cuenta business")
+                #self.page.wait_for_selector(mainView.button_orders.selector)
             print(f"leyendo en cuenta:{self.acount}")
             self.scrap_account()
             self.go_to_login()

@@ -9,10 +9,11 @@ valueOfSummaryConcept=localizador("Valor de concepto de resumen","div:nth-child(
 
 products_list=localizador("Lista de productos","div.a-fixed-left-grid-inner","css")
 priceOfProduct=localizador("Precio de producto","span[class='a-size-small a-color-price']","css")
+priceOfProduct2=localizador("Precio de producto","//span[contains(text(),'$')]","css")
 conditionOfProduct=localizador("Condicion de producto","span[class='a-color-secondary']","css")
 sellerOfProduct=localizador("Vendedor de producto","//span[contains(text(),'Vendido por:')]","css")
 #quantityOfProduct=localizador("Cantidad de producto","span[class='item-view-qty']","css")
-quantityOfProduct=localizador("Cantidad de producto","span[class='od-item-view-qty']","css")
+quantityOfProduct=localizador("Cantidad de producto","div[class='od-item-view-qty']>span","css")
 nameOfProduct=localizador("Nombre de producto","div.a-fixed-left-grid div.a-row:first-child a","css")
 dateOfDetailsProduct=localizador("Fecha de detalles de producto","//*[@id='orderDetails']//span[@class='order-date-invoice-item'][1]","xpath")
 

@@ -33,8 +33,10 @@ def updateGshhet(data=None):
     if response.status_code==200:
         print("Se cargó compra exitosamente al google sheets")
     else:
+        print(response.status_code)
         print("No se cargó compra al Google sheets")
-        raise Exception("Error al cargar compra")
+        print(response.text)
+        #raise Exception("Error al cargar compra")
     #print(postData)
     return postData
 def updateGshhet_test():
