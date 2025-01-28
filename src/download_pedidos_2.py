@@ -9,6 +9,7 @@ from tqdm import tqdm
 from pedidosAmazon.src.interfaces import mainView,homeLogin,pedidosOverview,detallesPedidos,trakingView
 from pedidosAmazon.src.utils.functions import previusUrl
 from pedidosAmazon.src.utils.amazonScraping import get_sku_info
+from pedidosAmazon.credentials import credentials
 from PIL import Image
 import time
 import locale
@@ -56,16 +57,19 @@ class Amazon:
         self.page.wait_for_selector(pedidosOverview.orderCards_list.selector)
     def get_pdf(self):
         self.page.goto(self.UrlPdf,wait_until="load")
-        self.page.wait_for_selector("//a[text()='Resumen del pedido']")
+        self.page.wait_for_selector("//a[text()='Resumen del pedido']",timeout=15000)
 
         #getting status of products
         productConditionList=[span.inner_text().strip() for span in self.page.locator("span[class='tiny']").all()]
-        if len(productConditionList)==len(self.dataProducts):
+        products_list=[]
+        for shipping in self.dataShippings:
+            products_list=products_list+shipping["dataProducts"]
+        if len(productConditionList)==len(products_list):
             print("Cantidad de filas de pdf y productos coinciden,extrayendo estados")
             print("Extrayendo los estados de los productos...")
             for i,productCondition in enumerate(productConditionList):
                 conditionProduct=productCondition.split("\n")[-1].replace("Estado:","").strip()
-                self.dataProducts[i]["conditionProduct"]=conditionProduct
+                products_list[i]["conditionProduct"]=conditionProduct
         
         pdfPath=os.path.join("downloads",f"{self.orderIdOfCard}.pdf")
         self.page.pdf(path=pdfPath)
@@ -169,7 +173,7 @@ class Amazon:
             except Exception as e:
                 print(str(e))
                 self.conditionProduct="-"
-            self.sellerProduct=product.locator(detallesPedidos.sellerOfProduct.selector).inner_text()
+            self.sellerProduct=product.locator(detallesPedidos.sellerOfProduct.selector).inner_text().replace("Vendido por:","").strip()
             #self.sellerProduct=product_text[1+offset].replace("Vendido por:","").strip()
             try:
                 #timeout 3s
@@ -280,7 +284,8 @@ class Amazon:
     def get_detailsOrderInfo(self):
         self.view="detallesPedidos"
         self.page.wait_for_selector(detallesPedidos.products_list.selector)
-        self.order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct.selector).inner_text()
+        order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct.selector).inner_text().replace("Pedido el","").strip()
+        self.order_date=datetime.strptime(order_date, '%d de %B de %Y').strftime("%d/%m/%Y")
         self.get_adress_info()
         try:
             #self.digitCards=self.page.locator("li>span:has(img)").inner_text()
@@ -381,6 +386,9 @@ class Amazon:
         for account in acounts_strings:
             selectorAcount=f"//div[contains(text(),'{account}')]"
             self.acount=account
+            
+            if account=='seguimientomkp@unaluka.com':
+                continue
             self.page.locator(selectorAcount).click()
             #wait load page
             self.page.wait_for_load_state("load")
@@ -396,13 +404,12 @@ class Amazon:
                 exit()
             if len(self.page.query_selector_all("input[id='signInSubmit']"))>0:
                 print(f"La cuenta {self.acount} pide ingresar contraseña nuevamente")
-                exit()
+                time.sleep(2)
+                self.page.get_by_label("Contraseña").fill(credentials[account])
+                self.page.get_by_label("Iniciar sesión").click()
+                #exit()
 
-            if account=='seguimientomkp@unaluka.com':
-                #self.page.wait_for_selector("link", name="Hola Gianfranco Cuenta de").click()
-                pass
-            else:
-                self.page.wait_for_selector(mainView.button_orders.selector)
+            self.page.wait_for_selector(mainView.button_orders.selector)
             print(f"leyendo en cuenta:{self.acount}")
             self.scrap_account()
             self.go_to_login()
