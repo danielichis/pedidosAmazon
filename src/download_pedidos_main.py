@@ -8,11 +8,12 @@ from pedidosAmazon.src.utils.autoWaits import retry_on_exception
 from tqdm import tqdm
 from pedidosAmazon.src.interfaces import mainView,homeLogin,pedidosOverview,detallesPedidos,trakingView
 from pedidosAmazon.src.utils.functions import previusUrl
-from pedidosAmazon.src.utils.amazonScraping import get_sku_info
-from pedidosAmazon.credentials import credentials
 from PIL import Image
 import time
 import locale
+
+from pedidosAmazon.src.amazon_st import AmazonSt
+from pedidosAmazon.src.amazon_bs import AmazonBs
 
 class Amazon:
     def __init__(self,dateConfigSheet=None) -> None:
@@ -40,12 +41,7 @@ class Amazon:
         print("---->LOGEADO CORRECTAMENTE<----")
 
     def go_to_orders(self):
-
-        if self.acount=='seguimientomkp@unaluka.com':
-            self.page.get_by_role("link", name="Hola Gianfranco Cuenta de").click()
-            self.page.get_by_role("button", name="Tus pedidos Tus pedidos").click()
-        else:
-            self.page.locator(mainView.button_orders.selector).click()
+        self.page.locator(mainView.button_orders.selector).click()
         time.sleep(3)
         if len(self.page.query_selector_all("span[class='a-size-base transaction-approval-word-break']"))>0:
             print(f"La cuenta {self.acount} pide codigo de verificacion")
@@ -57,20 +53,7 @@ class Amazon:
         self.page.wait_for_selector(pedidosOverview.orderCards_list.selector)
     def get_pdf(self):
         self.page.goto(self.UrlPdf,wait_until="load")
-        self.page.wait_for_selector("//a[text()='Resumen del pedido']",timeout=15000)
-
-        #getting status of products
-        productConditionList=[span.inner_text().strip() for span in self.page.locator("span[class='tiny']").all()]
-        products_list=[]
-        for shipping in self.dataShippings:
-            products_list=products_list+shipping["dataProducts"]
-        if len(productConditionList)==len(products_list):
-            print("Cantidad de filas de pdf y productos coinciden,extrayendo estados")
-            print("Extrayendo los estados de los productos...")
-            for i,productCondition in enumerate(productConditionList):
-                conditionProduct=productCondition.split("\n")[-1].replace("Estado:","").strip()
-                products_list[i]["conditionProduct"]=conditionProduct
-        
+        self.page.wait_for_selector("//a[text()='Resumen del pedido']")
         pdfPath=os.path.join("downloads",f"{self.orderIdOfCard}.pdf")
         self.page.pdf(path=pdfPath)
         self.view="pdfView"
@@ -81,7 +64,7 @@ class Amazon:
         self.shiptmentdate=self.page.query_selector("span[id='primaryStatus'],h1[class='pt-promise-main-slot']").inner_text()
         try:
             self.page.wait_for_selector("div[class='pt-delivery-card-trackingId'],h4[class*='trackingId-text']",timeout=1000)
-            self.trakingId=self.page.query_selector("div[class='pt-delivery-card-trackingId'],h4[class*='trackingId-text']").inner_text().replace("ID de rastreo:","")
+            self.trakingId=self.page.query_selector("div[class='pt-delivery-card-trackingId'],h4[class*='trackingId-text']").inner_text()
         except Exception as e:
             print("error en trakingID"+str(e))
             self.trakingId="-"
@@ -125,56 +108,22 @@ class Amazon:
             "Total (I.V.A. Incluido)":float(obj_bill["Total (I.V.A. Incluido)"].replace("$","").replace("\n","").replace(",","")),
         }
         self.info_bill=finallyBill
-
-    def search_product_brand(self):
-        sku_info=get_sku_info(self.linkProduct)
-        for category,info in sku_info.items():
-            print("Buscando en "+category+"...")
-            if "Marca" in info.keys():
-                print("Se encontró Marca")
-                return info["Marca"].upper()
-            elif "Fabricante" in info.keys():
-                print("Se encontró Fabricante")
-                return info["Fabricante"].upper()
-        
-        print("No se encontró Marca o Fabricante")
-        return "---No se encontró Marca,buscar manualmente---"
-
         
     def get_products_list(self):
         #another idea
         #self.page.locator("div[class='a-fixed-left-grid-inner']").inner_text()
         self.products_list=self.shipping.locator(detallesPedidos.products_list.selector).all()
-        #self.products_list=self.shippings
-        #studycase 112-7005829-6740208
-        #self.products_list=[product.inner_text().split("\n") for product in self.shippings]
         self.dataProducts=[]
         for product in self.products_list:
-            product_text=product.inner_text().split("\n")
-            if len(product_text)==6:
-                offset=1
-                self.quantityProduct=product_text[0]
-                print("Cantidad del producto mayor a 1")
-            else:
-                offset=0
-                self.quantityProduct=1
-
-
-            # if len(product_text)==5:
-            #     offset=0
-            #     self.quantityProduct=1
-
-            self.priceProduct=product.locator(detallesPedidos.priceOfProduct2.selector).first.inner_text().replace("US$","").replace("$","")
-            #self.priceProduct=float(self.priceProduct.replace("$","").replace("\n","").replace(",",""))
-            #self.priceProduct=product_text[2+offset].replace("US$","").replace("$","")
+            self.priceProduct=product.locator(detallesPedidos.priceOfProduct.selector).inner_text()
+            self.priceProduct=float(self.priceProduct.replace("$","").replace("\n","").replace(",",""))
             try:
                 self.conditionProduct="-"
                 #self.conditionProduct=product.locator(detallesPedidos.conditionOfProduct.selector).inner_text()
             except Exception as e:
                 print(str(e))
                 self.conditionProduct="-"
-            self.sellerProduct=product.locator(detallesPedidos.sellerOfProduct.selector).inner_text().replace("Vendido por:","").strip()
-            #self.sellerProduct=product_text[1+offset].replace("Vendido por:","").strip()
+            self.sellerProduct=product.locator(detallesPedidos.sellerOfProduct.selector).inner_text()
             try:
                 #timeout 3s
                 self.page.wait_for_selector(detallesPedidos.quantityOfProduct.selector,timeout=1000)
@@ -183,20 +132,7 @@ class Amazon:
                 print("error en cantidad:"+str(e))
                 self.quantityProduct=1
             self.nameProduct=product.locator("div[class*='a-fixed-left-grid'] div[class*='a-row']:first-child>a").inner_text()
-            self.linkProduct=self.urlMain+product.locator("div[class*='a-fixed-left-grid'] div[class*='a-row']:first-child>a").get_attribute("href")
-
-            #self.nameProduct=product_text[0+offset]
-
-            #brand
-            self.brandProduct=self.search_product_brand()
-
-            products_dict={"nameProduct":self.nameProduct,
-                           "priceProduct":self.priceProduct,
-                           "conditionProduct":self.conditionProduct,
-                           "sellerProduct":self.sellerProduct,
-                           "quantityProduct":self.quantityProduct,
-                           "linkProduct":self.linkProduct,
-                           "brandProduct":self.brandProduct}
+            products_dict={"nameProduct":self.nameProduct,"priceProduct":self.priceProduct,"conditionProduct":self.conditionProduct,"sellerProduct":self.sellerProduct,"quantityProduct":self.quantityProduct}
             self.dataProducts.append(products_dict)
 
     def createData(self):
@@ -209,8 +145,6 @@ class Amazon:
                         "date":self.order_date,
                         "orderId":self.orderIdOfCard,
                         "nameProduct":product["nameProduct"],
-                        "linkProduct":product["linkProduct"],
-                        "brand":product["brandProduct"],
                         "Condition":product["conditionProduct"],
                         "Seller":product["sellerProduct"],
                         "Quantity":1,
@@ -228,23 +162,17 @@ class Amazon:
         
     def get_shipping_info(self):
         try:
-            self.page.wait_for_selector("div[class='a-fixed-left-grid-inner']")
-            self.shippings=self.page.locator("div[data-component='shipments'] div[class='a-box-inner']").all()
-            #self.shippings=self.page.locator("div[class='a-fixed-left-grid-inner']").all()
-            # self.page.wait_for_selector("div[class='a-box shipment']")
-            # self.shippings=self.page.locator("div[class*='a-box shipment']").all()
+            self.page.wait_for_selector("div[class*='a-box shipment']")
+            self.shippings=self.page.locator("div[class*='a-box shipment']").all()
         except:
             self.page.wait_for_selector("div[class*='a-box-group']")
             self.shippings=self.page.locator("div[class*='a-box-group']").all()
 
         self.dataShippings=[]
-        if len(self.shippings)==2:
-            print("2 envíos")
         for self.shipping in self.shippings:
             self.get_products_list()
             try:
-                #self.urlTraking=self.shipping.locator("span[class*='track-package-button'] a").get_attribute("href")
-                self.urlTraking=self.shipping.get_by_text("Rastrear paquete").get_attribute("href")
+                self.urlTraking=self.shipping.locator("span[class*='track-package-button'] a").get_attribute("href")
                 self.urlTraking=self.urlMain+self.urlTraking
             except:
                 self.urlTraking="sin url"
@@ -284,13 +212,10 @@ class Amazon:
     def get_detailsOrderInfo(self):
         self.view="detallesPedidos"
         self.page.wait_for_selector(detallesPedidos.products_list.selector)
-        order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct.selector).inner_text().replace("Pedido el","").strip()
-        self.order_date=datetime.strptime(order_date, '%d de %B de %Y').strftime("%d/%m/%Y")
+        self.order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct.selector).inner_text()
         self.get_adress_info()
         try:
-            #self.digitCards=self.page.locator("li>span:has(img)").inner_text()
-            #Get last 4 character because they contain the digits numbers
-            self.digitCards=self.page.locator("li>span:has(img)").first.inner_text()[-4:]
+            self.digitCards=self.page.locator("li>span:has(img)").inner_text()
         except:
             self.digitCards="Sin digitos"
         self.get_bill_info()
@@ -310,7 +235,7 @@ class Amazon:
     def esperar_lista_paginas(self):
         max_retries=5
         retrie=0
-        delay=2
+        delay=1
         self.orderCards_list=self.page.locator(pedidosOverview.orderCards_list.selector).all()
         while retrie<max_retries:
             self.orderCards_list=self.page.locator(pedidosOverview.orderCards_list.selector).all()
@@ -386,16 +311,13 @@ class Amazon:
         for account in acounts_strings:
             selectorAcount=f"//div[contains(text(),'{account}')]"
             self.acount=account
-            
-            if account=='seguimientomkp@unaluka.com':
-                continue
             self.page.locator(selectorAcount).click()
             #wait load page
             self.page.wait_for_load_state("load")
             time.sleep(3)
             #goto spanish language account
             #self.page.goto("https://www.amazon.com/?ref_=nav_youraccount_switchacct&language=es_US")
-            #self.page.wait_for_load_state("networkidle")
+            self.page.wait_for_load_state("networkidle")
             self.page.wait_for_load_state("load")
             time.sleep(3)
             if len(self.page.query_selector_all("span[class='a-size-base transaction-approval-word-break']"))>0:
@@ -404,11 +326,7 @@ class Amazon:
                 exit()
             if len(self.page.query_selector_all("input[id='signInSubmit']"))>0:
                 print(f"La cuenta {self.acount} pide ingresar contraseña nuevamente")
-                time.sleep(2)
-                self.page.get_by_label("Contraseña").fill(credentials[account])
-                self.page.get_by_label("Iniciar sesión").click()
-                #exit()
-
+                exit()
             self.page.wait_for_selector(mainView.button_orders.selector)
             print(f"leyendo en cuenta:{self.acount}")
             self.scrap_account()
@@ -419,11 +337,19 @@ class Amazon:
         self.browser.close()
         self.p.stop()
 def get_pedidos_amazon():
-    amazonPage=Amazon()
-    amazonPage.go_to_login()
-    amazonPage.scrap_info()
-    amazonPage.end()
+    print("Extrayendo pedidos de cuentas Business")
+    amazonPageBs=AmazonBs()
+    amazonPageBs.go_to_login()
+    amazonPageBs.scrap_info()
+    amazonPageBs.end()
+    print("Extrayendo pedidos de cuentas Standard")
+    amazonPageSt=AmazonSt()
+    amazonPageSt.go_to_login()
+    amazonPageSt.scrap_info()
+    amazonPageSt.end()
+    print("terminado")
     return "terminado"
+
 if __name__ == "__main__":
     get_pedidos_amazon()
 

@@ -103,9 +103,13 @@ def get_overview(sku_html):
 
         # Step 2: From those parents, find the inner divs
         overView = []
+        
         for parent in parent_divs:
-            inner_divs = parent.css_first("div > div").text()
-            overView.extend(inner_divs)
+            try:
+                inner_divs = parent.css_first("div > div").text()
+                overView.extend(inner_divs)
+            except:
+                print("Couldn't capture overview")
 
         #for view in overView:
         #    try:
@@ -114,6 +118,17 @@ def get_overview(sku_html):
         #        pass
     return overVies
 
+def get_product_subtitle(sku_html):
+    try:
+        subtitle=sku_html.css_first("a#bylineInfo").text()
+        if "Visita la tienda de" in subtitle:
+            subtitle=subtitle.replace("Visita la tienda de","").strip()
+        elif "Marca" in subtitle:
+            subtitle=subtitle.replace("Marca:","").strip()
+        return {"Marca":subtitle}
+    except:
+        return {}
+    
 
 def get_product_information(sku_html):
     productInformation=sku_html.css("table[id*='productDetails_detailBullets'] tr")
@@ -123,20 +138,23 @@ def get_product_information(sku_html):
     return productInformationDict
 
 def get_sku_info(purchase_url:str):
-
+    print("Capturando información del producto...")
     #skus_info=[]
     sku_html=get_amazon_html(purchase_url)
     descriptions=get_descriptions(sku_html=sku_html)
-    print(descriptions)
+    #print(descriptions)
     overview=get_overview(sku_html=sku_html)
-    print(overview)
+    #print(overview)
     product_information=get_product_information(sku_html=sku_html)
-    print(product_information)
+    #print(product_information)
+    subtitle=get_product_subtitle(sku_html=sku_html)
+    #print(subtitle)
 
     sku_info={
         "descriptions":descriptions,
         "overview":overview,
-        "product information":product_information
+        "product information":product_information,
+        "subtitle":subtitle
     }
 
     return sku_info
@@ -160,7 +178,8 @@ if __name__ == "__main__":
                   "https://www.amazon.com/-/es/dp/B07FHM225F?ref_=ppx_hzod_title_dt_b_fed_asin_title_0_0",
                   "https://www.amazon.com/-/es/gp/product/B000GB0G2A/ref=ppx_od_dt_b_asin_title_s00?ie=UTF8&psc=1",
                     "https://www.amazon.com/-/es/dp/B0012SNLJG?ref_=ppx_hzod_title_dt_b_fed_asin_title_0_0",
-                    "https://www.amazon.com/dp/B0C58H2CSP"]
+                    "https://www.amazon.com/dp/B0C58H2CSP",
+                    "https://www.amazon.com/-/es/gp/product/B00L8TBTXE/ref=ppx_od_dt_b_asin_title_s00?ie=UTF8&psc=1"]
     
     # skus_info=[]
     # sku_html=get_amazon_html(purchase_url[-1])
@@ -179,7 +198,7 @@ if __name__ == "__main__":
     # print(sku_info)
     # skus_info.append(sku_info)
 
-    sku_info=get_sku_info(purchase_url[3])
+    sku_info=get_sku_info(purchase_url[-1])
     brand=search_sku_brand(sku_info)
     print(brand)
     

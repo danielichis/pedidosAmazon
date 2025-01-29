@@ -13,7 +13,7 @@ from PIL import Image
 import time
 import locale
 
-class Amazon:
+class AmazonBs:
     def __init__(self,dateConfigSheet=None) -> None:
         self.p= sync_playwright().start()
         self.browser = self.p.chromium.launch_persistent_context(user_data_dir=stt.user_data_dir,headless=stt.headless)
@@ -169,7 +169,7 @@ class Amazon:
             except Exception as e:
                 print(str(e))
                 self.conditionProduct="-"
-            self.sellerProduct=product.locator(detallesPedidos.sellerOfProduct.selector).inner_text()
+            self.sellerProduct=product.locator(detallesPedidos.sellerOfProduct.selector).inner_text().replace("Vendido por:","").strip()
             #self.sellerProduct=product_text[1+offset].replace("Vendido por:","").strip()
             try:
                 #timeout 3s
@@ -211,7 +211,8 @@ class Amazon:
                         "Seller":product["sellerProduct"],
                         "Quantity":1,
                         "Price":product["priceProduct"],
-                        "Payment Instrument Type":self.digitCards,
+                        "Payment Instrument Card":self.nameCards,
+                        "Payment Instrument Numbers":self.digitCards,
                         "Ordering Customer Email":self.acount,
                         "shiptmentdate":ship["shiptmentdate"],
                         **self.adressInfo,
@@ -281,12 +282,16 @@ class Amazon:
     def get_detailsOrderInfo(self):
         self.view="detallesPedidos"
         self.page.wait_for_selector(detallesPedidos.products_list.selector)
-        self.order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct.selector).inner_text()
+        order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct.selector).inner_text().replace("Pedido el","").strip()
+        self.order_date=datetime.strptime(order_date, '%d de %B de %Y').strftime("%d/%m/%Y")
         self.get_adress_info()
         try:
             #self.digitCards=self.page.locator("li>span:has(img)").inner_text()
             #Get last 4 character because they contain the digits numbers
-            self.digitCards=self.page.locator("li>span:has(img)").first.inner_text()[-4:]
+            cardInfo=self.page.locator("li>span:has(img)").first.inner_text().split("que termina en")
+            self.nameCards=cardInfo[0]
+            self.digitCards=int(cardInfo[1])
+            #self.digitCards=self.page.locator("li>span:has(img)").first.inner_text()[-4:]
         except:
             self.digitCards="Sin digitos"
         self.get_bill_info()
@@ -329,28 +334,33 @@ class Amazon:
                 ordersLinks.append(orderLink)
             except:
                 print("Orden no tiene link de rastreo,pasando a la siguiente")
+                orderLink=None
+                ordersLinks.append(orderLink)
         ordersIds=[orderCard.locator(pedidosOverview.orderIdOfCard_bs.selector).inner_text().replace("Pedido # ","") for orderCard in orderCards_list]
         ordersDates=[orderCard.locator(pedidosOverview.dateofCard_bs.selector).inner_text() for orderCard in orderCards_list]
         print(f"numero de pedidos:{len(orderCards_list)}")
         for i,link in enumerate(ordersLinks):
-            dateofCard=ordersDates[i]
-            self.orderIdOfCard=ordersIds[i]
-            r= self.is_order_wanted(dateofCard)
-            self.status=r
-            print("\n")
-            print(f"pedido {self.orderIdOfCard}-{dateofCard}...")
-            if r=="stop":
-                print("terminando de leer pedidos")
-                break
-            elif r=="skip":
-                print(f"Saltando pedido ...")
-                continue
-            print(f"leyendo pedido ...")
-            link=self.urlMain+link            
-            #time.sleep(1)
-            self.page.goto(link,wait_until="load")
-            self.get_detailsOrderInfo()
-            self.view="detallesPedidos"
+            if link:
+                dateofCard=ordersDates[i]
+                self.orderIdOfCard=ordersIds[i]
+                r= self.is_order_wanted(dateofCard)
+                self.status=r
+                print("\n")
+                print(f"pedido {self.orderIdOfCard}-{dateofCard}...")
+                if r=="stop":
+                    print("terminando de leer pedidos")
+                    break
+                elif r=="skip":
+                    print(f"Saltando pedido ...")
+                    continue
+                print(f"leyendo pedido ...")
+                link=self.urlMain+link            
+                #time.sleep(1)
+                self.page.goto(link,wait_until="load")
+                self.get_detailsOrderInfo()
+                self.view="detallesPedidos"
+            else:
+                print("Orden no tiene link de acceso")
             
     def switch_to_tab(self,tab):
         if tab>1:
@@ -393,6 +403,8 @@ class Amazon:
         for account in acounts_strings:
             selectorAcount=f"//div[contains(text(),'{account}')]"
             self.acount=account
+            if account!='seguimientomkp@unaluka.com':
+                continue
             self.page.locator(selectorAcount).click()
             #wait load page
             self.page.wait_for_load_state("load")
@@ -410,11 +422,9 @@ class Amazon:
                 print(f"La cuenta {self.acount} pide ingresar contraseña nuevamente")
                 exit()
 
-            if account=='seguimientomkp@unaluka.com':
-                pass
-            else:
-                raise Exception("No es la cuenta business")
-                #self.page.wait_for_selector(mainView.button_orders.selector)
+
+
+            #self.page.wait_for_selector(mainView.button_orders.selector)
             print(f"leyendo en cuenta:{self.acount}")
             self.scrap_account()
             self.go_to_login()
