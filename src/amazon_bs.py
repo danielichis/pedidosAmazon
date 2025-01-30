@@ -9,9 +9,12 @@ from tqdm import tqdm
 from pedidosAmazon.src.interfaces import mainView,homeLogin,pedidosOverview,detallesPedidos,trakingView
 from pedidosAmazon.src.utils.functions import previusUrl
 from pedidosAmazon.src.utils.amazonScraping import get_sku_info
+from pedidosAmazon.src.utils.pdfScraping import extract_prod_condition_pdf
 from PIL import Image
 import time
 import locale
+import requests
+from http.cookies import SimpleCookie
 
 class AmazonBs:
     def __init__(self,dateConfigSheet=None) -> None:
@@ -55,23 +58,55 @@ class AmazonBs:
             exit()
         self.page.wait_for_selector(pedidosOverview.orderCards_list_bs.selector)
     def get_pdf(self):
-        self.page.goto(self.UrlPdf,wait_until="load")
-        self.page.wait_for_selector("//a[text()='Resumen del pedido']")
+        #self.page.goto(self.UrlPdf,wait_until="load")
+        ###Getting headers and cookies from request
+        with self.page.expect_request(self.UrlPdf) as request_info:
+            self.page.goto(self.UrlPdf,wait_until="load")
 
-        #getting status of products
-        productConditionList=[span.inner_text().strip() for span in self.page.locator("span[class='tiny']").all()]
-        if len(productConditionList)==len(self.dataProducts):
-            print("Cantidad de filas de pdf y productos coinciden,extrayendo estados")
+        request = request_info.value
+        amazon_headers=request.headers
+        amazon_cookies=request.all_headers()['cookie']
+        print(amazon_headers)
+        print(amazon_cookies)
+        #Creating cookie object to create cookies dict
+        cookie = SimpleCookie()
+        cookie.load(amazon_cookies)
+        cookies_dict ={ key:morsel.value for key, morsel in cookie.items()}
+
+
+        ##Obtaining location which contain the pdf URL from the response
+        with self.page.expect_response(self.UrlPdf) as response_info:
+            self.page.goto(self.UrlPdf,wait_until="load")
+
+
+        response = response_info.value
+        location=response.headers['location']
+        #print(request.headers)
+
+        ##Obtaining pdf
+        response_pdf = requests.get(
+            self.UrlPdf,
+            cookies=cookies_dict,
+            headers=amazon_headers,
+        )
+
+        print(response_pdf.status_code)
+        pdfPath=os.path.join("downloads",f"{self.orderIdOfCard}.pdf")
+        with open(pdfPath, 'wb') as f:
+            f.write(response_pdf.content)
+        print(f"Se descargó resumen de pedido {self.orderIdOfCard}.")
+        self.view="pdfView"
+        ##Setting the conditions of the products in the dataproductsInfo
+        productConditionList=extract_prod_condition_pdf(pdf_path=pdfPath)
+        products_list=[]
+        for shipping in self.dataShippings:
+            products_list=products_list+shipping["dataProducts"]
+        if len(productConditionList)==len(products_list):
+            print("Cantidad de filas de pdf y productos coinciden")
             print("Extrayendo los estados de los productos...")
             for i,productCondition in enumerate(productConditionList):
-                conditionProduct=productCondition.split("\n")[-1].replace("Estado:","").strip()
-                self.dataProducts[i]["conditionProduct"]=conditionProduct
-        
-        pdfPath=os.path.join("downloads",f"{self.orderIdOfCard}.pdf")
-        self.page.pdf(path=pdfPath)
-        self.view="pdfView"
-        #self.page.locator("//a[text()='Resumen del pedido']").click()
-        pass
+                products_list[i]["conditionProduct"]=productCondition
+
     def get_trakingInfo(self):
         self.page.wait_for_selector("span[id='primaryStatus'],h1[class='pt-promise-main-slot']")
         self.shiptmentdate=self.page.query_selector("span[id='primaryStatus'],h1[class='pt-promise-main-slot']").inner_text()
@@ -299,7 +334,7 @@ class AmazonBs:
         self.UrlPdf=self.page.locator("//span[@class='a-list-item']/a[contains(text(), 'Resumen de pedido para imprimir')]").get_attribute("href") 
         self.get_shipping_info()
         self.UrlPdf=self.urlMain+self.UrlPdf
-        #self.get_pdf()
+        self.get_pdf()
         self.createData()
     
     def save_to_csv(self):
@@ -434,7 +469,7 @@ class AmazonBs:
         self.browser.close()
         self.p.stop()
 def get_pedidos_amazon():
-    amazonPage=Amazon()
+    amazonPage=AmazonBs()
     amazonPage.go_to_login()
     amazonPage.scrap_info()
     amazonPage.end()

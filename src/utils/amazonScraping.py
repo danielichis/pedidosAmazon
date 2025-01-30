@@ -121,12 +121,21 @@ def get_overview(sku_html):
 def get_product_subtitle(sku_html):
     try:
         subtitle=sku_html.css_first("a#bylineInfo").text()
+    except:
+        try:  
+            subtitle=sku_html.css_first("div#bylineInfo").text()
+        except:
+            subtitle=None
+
+    if subtitle:
+        print("Se encontró subtítulo")
         if "Visita la tienda de" in subtitle:
             subtitle=subtitle.replace("Visita la tienda de","").strip()
         elif "Marca" in subtitle:
             subtitle=subtitle.replace("Marca:","").strip()
         return {"Marca":subtitle}
-    except:
+    else:
+        print("Se encontró subtitulo en productos de Amazon")
         return {}
     
 

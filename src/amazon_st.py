@@ -65,7 +65,7 @@ class AmazonSt:
         for shipping in self.dataShippings:
             products_list=products_list+shipping["dataProducts"]
         if len(productConditionList)==len(products_list):
-            print("Cantidad de filas de pdf y productos coinciden,extrayendo estados")
+            print("Cantidad de filas de pdf y productos coinciden")
             print("Extrayendo los estados de los productos...")
             for i,productCondition in enumerate(productConditionList):
                 conditionProduct=productCondition.split("\n")[-1].replace("Estado:","").strip()
