@@ -168,14 +168,14 @@ class AmazonSt:
         #self.products_list=[product.inner_text().split("\n") for product in self.shippings]
         self.dataProducts=[]
         for product in self.products_list:
-            product_text=product.inner_text().split("\n")
-            if len(product_text)==6:
-                offset=1
-                self.quantityProduct=product_text[0]
-                print("Cantidad del producto mayor a 1")
-            else:
-                offset=0
-                self.quantityProduct=1
+            # product_text=product.inner_text().split("\n")
+            # if len(product_text)==6:
+            #     offset=1
+            #     self.quantityProduct=product_text[0]
+            #     print("Cantidad del producto mayor a 1")
+            # else:
+            #     offset=0
+            #     self.quantityProduct=1
 
 
             # if len(product_text)==5:

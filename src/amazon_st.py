@@ -248,7 +248,7 @@ class AmazonSt:
                 self.urlTraking=self.urlMain+self.urlTraking
             except:
                 self.urlTraking="sin url"
-            self.dataShippings.append({"urlTraking":self.urlTraking,"dataProducts":self.dataProducts,"shiptmentdate":"sin rastreo","trakingId":"sin rastreo"})
+            self.dataShippings.append({"urlTraking":self.urlTraking,"dataProducts":self.dataProducts,"shiptmentdate":"sin rastreo","trakingId":"sin rastreo","courier":"sin rastreo"})
         
         for dataShipping in self.dataShippings:
             if dataShipping["urlTraking"]!="sin url":
