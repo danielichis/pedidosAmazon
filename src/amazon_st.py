@@ -35,17 +35,13 @@ class AmazonSt:
         if self.dateConfigSheet==None:
             self.dateConfigSheet=self.dateConfig
     def go_to_login(self):
-        self.page.goto(self.urlSignin)
+        self.page.goto(self.urlSignin,timeout=15000)
         self.page.wait_for_url(self.urlSignin)
         print("---->LOGEADO CORRECTAMENTE<----")
 
     def go_to_orders(self):
 
-        if self.acount=='seguimientomkp@unaluka.com':
-            self.page.get_by_role("link", name="Hola Gianfranco Cuenta de").click()
-            self.page.get_by_role("button", name="Tus pedidos Tus pedidos").click()
-        else:
-            self.page.locator(mainView.button_orders.selector).click()
+        self.page.locator(mainView.button_orders.selector).click()
         time.sleep(3)
         if len(self.page.query_selector_all("span[class='a-size-base transaction-approval-word-break']"))>0:
             print(f"La cuenta {self.acount} pide codigo de verificacion")
@@ -82,9 +78,11 @@ class AmazonSt:
         try:
             self.page.wait_for_selector("div[class='pt-delivery-card-trackingId'],h4[class*='trackingId-text']",timeout=1000)
             self.trakingId=self.page.query_selector("div[class='pt-delivery-card-trackingId'],h4[class*='trackingId-text']").inner_text().replace("ID de rastreo:","")
+            self.courier=self.page.query_selector("div[class='pt-delivery-card-wrapper'] h3").inner_text()
         except Exception as e:
             print("error en trakingID"+str(e))
             self.trakingId="-"
+            self.courier="-"
 
 
     def is_order_wanted(self,dateofCard):
@@ -220,6 +218,7 @@ class AmazonSt:
                         "Ordering Customer Email":self.acount,
                         "shiptmentdate":ship["shiptmentdate"],
                         **self.adressInfo,
+                        "courier":ship["courier"],
                         "trakingId":ship["trakingId"],
                         **self.info_bill
                     }
@@ -257,6 +256,7 @@ class AmazonSt:
                 self.get_trakingInfo()
                 dataShipping["shiptmentdate"]=self.shiptmentdate
                 dataShipping["trakingId"]=self.trakingId
+                dataShipping["courier"]=self.courier
             
     def get_adress_info(self):
         self.directions_list=self.page.locator(detallesPedidos.directions_list.selector).all_inner_texts()

@@ -3,6 +3,7 @@ from selectolax.parser import HTMLParser
 import requests
 import re
 import json
+from playwright.sync_api import sync_playwright,expect
 
 def get_amazon_html(purchase_url:str):
     cookies = {
@@ -180,7 +181,48 @@ def search_sku_brand(sku_info:dict):
         
     return "No se encontró Marca"
         
-        
+#functions to look the weight of the sku with playwright
+
+
+def search_sku_weight(pw_page):
+    weight_description=get_field_from_search_bar(pw_page,"peso")
+    return weight_description
+
+def get_field_from_search_bar(pw_page,field):
+    #url https://www.amazon.com/ask/livesearch/detailPageSearch/search?query=peso&asin=B0815XFSGK&forumId=&liveSearchSessionId=c196fd3e-3b30-41c6-b949-216cd5287a70&liveSearchPageLoadId=b4aedb69-c00e-4229-bebe-6dd7a5205bda&searchSource=LIVE_SEARCH_SOURCE&askLanguage=es_US&isFromSecondaryPage=
+    #scroll to the search bar
+    try:
+        scroll_to_bottom_slowly(pw_page)
+        #pw_page.evaluate("window.scrollTo(0, document.body.scrollHeight);")
+        input_searcher=pw_page.locator("input[type='search']").first
+        expect(input_searcher).to_be_visible()
+        input_searcher.scroll_into_view_if_needed()
+        input_searcher.fill(field,timeout=5000)
+        field_locator=pw_page.locator("div[class='a-section askBtfSearchResultsViewableContent'] span:has(span[class='matches'])").first
+        expect(field_locator).to_be_visible(timeout=8000)
+        fields=field_locator.inner_text()
+    except Exception as e:
+        print(str(e))
+        fields="No Especifica"
+    return  fields
+
+def scroll_to_bottom_slowly(pw_page, timeout_ms=20000):  # timeout_ms is the maximum allowed time in milliseconds
+    pw_page.evaluate(f"""
+        async () => {{
+            const startTime = new Date().getTime();  // Initialize start time
+            const timeout = {timeout_ms};  // Timeout in milliseconds
+            const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+            while (window.scrollY + window.innerHeight < document.body.scrollHeight) {{
+                window.scrollBy(0, 250);  // Corrected comment: Scroll down by 250 pixels
+                await delay(50);  // Corrected comment: Wait for 50 milliseconds
+                const elapsedTime = new Date().getTime() - startTime;
+                if (elapsedTime > timeout) {{  // Check if timeout is exceeded
+                    break;  // Stop scrolling if timeout is exceeded
+                }}
+            }}
+        }}
+    """)
+
 
 if __name__ == "__main__":
     purchase_url=["https://www.amazon.com/-/es/dp/B09VSD4YVD?ref_=ppx_hzod_title_dt_b_fed_asin_title_1_0&th=1",
