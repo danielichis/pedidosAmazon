@@ -78,7 +78,7 @@ class AmazonSt:
         try:
             self.page.wait_for_selector("div[class='pt-delivery-card-trackingId'],h4[class*='trackingId-text']",timeout=1000)
             self.trakingId=self.page.query_selector("div[class='pt-delivery-card-trackingId'],h4[class*='trackingId-text']").inner_text().replace("ID de rastreo:","")
-            self.courier=self.page.query_selector("div[class='pt-delivery-card-wrapper'] h3").inner_text()
+            self.courier=self.page.query_selector("div[class='pt-delivery-card-wrapper'] h3").inner_text().replace("Entrega por","").replace("Enviado con","").strip()
         except Exception as e:
             print("error en trakingID"+str(e))
             self.trakingId="-"
