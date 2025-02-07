@@ -280,7 +280,16 @@ class AmazonSt:
             address_zip=self.directions_list[3].split(",")[1]
         except:
             address_zip="-"
-        self.adressInfo={"address_name":address_name,"address_street1":address_street1,"address_city":address_city,"address_state":address_state,"address_zip":address_zip}
+
+        #Splitting address zip
+
+        address_zip_list=address_zip.strip().split(" ")
+        if len(address_zip_list)==2:
+            address_zip_1,address_zip_2=address_zip_list[0],address_zip_list[1]
+        else:
+            address_zip_1,address_zip_2="-","-"
+        
+        self.adressInfo={"address_name":address_name,"address_street1":address_street1,"address_city":address_city,"address_state":address_state,"address_zip":address_zip,"address_zip_1":address_zip_1,"address_zip_2":address_zip_2}
 
     def get_detailsOrderInfo(self):
         self.view="detallesPedidos"
@@ -349,7 +358,20 @@ class AmazonSt:
             link=self.urlMain+link            
             #time.sleep(1)
             self.page.goto(link,wait_until="load")
-            self.get_detailsOrderInfo()
+            try:
+                self.get_detailsOrderInfo()
+            except Exception as e:
+                print("Error al capturar info de producto "+str(e))
+                print("Pasando a siguiente producto...")
+                error_data={
+                        "date":ordersDates[i],
+                        "orderId":self.orderIdOfCard,
+                        "nameProduct":"ERROR AL OBTENER INFORMACIÓN DE PRODUCTO"
+                    }
+                updateGshhet([error_data])
+                self.view="detallesPedidos"
+                continue
+
             self.view="detallesPedidos"
             
     def switch_to_tab(self,tab):
