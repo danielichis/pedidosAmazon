@@ -505,14 +505,18 @@ class AmazonBs:
         self.page.close()
         self.browser.close()
         self.p.stop()
-def get_pedidos_amazon():
-    amazonPage=AmazonBs()
-    amazonPage.go_to_login()
-    amazonPage.scrap_info()
-    amazonPage.end()
-    return "terminado"
+def get_pedidos_amazon_bs(dates_dict=None):
+    try:
+        amazonPage=AmazonBs(dateConfigSheet=dates_dict)
+        amazonPage.go_to_login()
+        amazonPage.scrap_info()
+        amazonPage.end()
+        return "terminado"
+    except:
+        print("Error al extraer órdenes business")
+        amazonPage.end()
 if __name__ == "__main__":
-    get_pedidos_amazon()
+    get_pedidos_amazon_bs()
 
     
 

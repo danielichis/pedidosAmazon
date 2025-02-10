@@ -12,8 +12,8 @@ from PIL import Image
 import time
 import locale
 
-from pedidosAmazon.src.amazon_st import AmazonSt
-from pedidosAmazon.src.amazon_bs import AmazonBs
+from pedidosAmazon.src.amazon_st import AmazonSt,get_pedidos_amazon_st
+from pedidosAmazon.src.amazon_bs import AmazonBs,get_pedidos_amazon_bs
 
 class Amazon:
     def __init__(self,dateConfigSheet=None) -> None:
@@ -338,15 +338,17 @@ class Amazon:
         self.p.stop()
 def get_pedidos_amazon(dates_dict=None):
     print("Extrayendo pedidos de cuentas Business")
-    amazonPageBs=AmazonBs(dates_dict)
-    amazonPageBs.go_to_login()
-    amazonPageBs.scrap_info()
-    amazonPageBs.end()
+    get_pedidos_amazon_bs(dates_dict)
+    #amazonPageBs=AmazonBs(dates_dict)
+    #amazonPageBs.go_to_login()
+    #amazonPageBs.scrap_info()
+    #amazonPageBs.end()
     print("Extrayendo pedidos de cuentas Standard")
-    amazonPageSt=AmazonSt(dates_dict)
-    amazonPageSt.go_to_login()
-    amazonPageSt.scrap_info()
-    amazonPageSt.end()
+    get_pedidos_amazon_st(dates_dict)
+    #amazonPageSt=AmazonSt(dates_dict)
+    #amazonPageSt.go_to_login()
+    #amazonPageSt.scrap_info()
+    #amazonPageSt.end()
     print("terminado")
     return "terminado"
 

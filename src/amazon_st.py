@@ -416,8 +416,8 @@ class AmazonSt:
             selectorAcount=f"//div[contains(text(),'{account}')]"
             self.acount=account
             
-            #if account=='seguimientomkp@unaluka.com':
-            if account!='logistica@unaluka.com': 
+            if account=='seguimientomkp@unaluka.com':
+            #if account!='logistica@unaluka.com': 
                 continue
             self.page.locator(selectorAcount).click()
             #wait load page
@@ -448,14 +448,18 @@ class AmazonSt:
         self.page.close()
         self.browser.close()
         self.p.stop()
-def get_pedidos_amazon():
-    amazonPage=AmazonSt()
-    amazonPage.go_to_login()
-    amazonPage.scrap_info()
-    amazonPage.end()
-    return "terminado"
+def get_pedidos_amazon_st(dates_dict=None):
+    try:
+        amazonPage=AmazonSt(dateConfigSheet=dates_dict)
+        amazonPage.go_to_login()
+        amazonPage.scrap_info()
+        amazonPage.end()
+        return "terminado"
+    except:
+        print("Error al extraer órdenes business")
+        amazonPage.end()
 if __name__ == "__main__":
-    get_pedidos_amazon()
+    get_pedidos_amazon_st()
 
     
 
