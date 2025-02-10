@@ -416,7 +416,8 @@ class AmazonSt:
             selectorAcount=f"//div[contains(text(),'{account}')]"
             self.acount=account
             
-            if account=='seguimientomkp@unaluka.com':
+            #if account=='seguimientomkp@unaluka.com':
+            if account!='logistica@unaluka.com': 
                 continue
             self.page.locator(selectorAcount).click()
             #wait load page
