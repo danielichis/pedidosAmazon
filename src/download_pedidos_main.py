@@ -336,14 +336,14 @@ class Amazon:
         self.page.close()
         self.browser.close()
         self.p.stop()
-def get_pedidos_amazon():
+def get_pedidos_amazon(dates_dict=None):
     print("Extrayendo pedidos de cuentas Business")
-    amazonPageBs=AmazonBs()
+    amazonPageBs=AmazonBs(dates_dict)
     amazonPageBs.go_to_login()
     amazonPageBs.scrap_info()
     amazonPageBs.end()
     print("Extrayendo pedidos de cuentas Standard")
-    amazonPageSt=AmazonSt()
+    amazonPageSt=AmazonSt(dates_dict)
     amazonPageSt.go_to_login()
     amazonPageSt.scrap_info()
     amazonPageSt.end()

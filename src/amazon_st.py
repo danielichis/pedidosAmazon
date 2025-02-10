@@ -49,7 +49,10 @@ class AmazonSt:
             exit()
         if len(self.page.query_selector_all("input[id='signInSubmit']"))>0:
             print(f"La cuenta {self.acount} pide ingresar contraseña nuevamente")
-            exit()
+            time.sleep(2)
+            self.page.get_by_label("Contraseña").fill(credentials[self.acount])
+            self.page.get_by_label("Iniciar sesión").click()
+            #exit()
         self.page.wait_for_selector(pedidosOverview.orderCards_list.selector)
     def get_pdf(self):
         self.page.goto(self.UrlPdf,wait_until="load")
