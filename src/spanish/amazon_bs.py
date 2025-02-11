@@ -333,7 +333,10 @@ class AmazonBs:
     def get_detailsOrderInfo(self):
         self.view="detallesPedidos"
         self.page.wait_for_selector(detallesPedidos.products_list.selector)
-        order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct1.selector).inner_text().replace("Pedido el","").strip()
+        try:
+            order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct1.selector).inner_text().replace("Pedido el","").strip()
+        except:
+            order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct2.selector).inner_text().split("N.º")[0].replace("Pedido realizado","").strip()
         self.order_date=datetime.strptime(order_date, '%d de %B de %Y').strftime("%d/%m/%Y")
         self.get_adress_info()
         try:
@@ -512,8 +515,9 @@ def get_pedidos_amazon_bs(dates_dict=None):
         amazonPage.scrap_info()
         amazonPage.end()
         return "terminado"
-    except:
+    except Exception as e:
         print("Error al extraer órdenes business")
+        print(str(e))
         amazonPage.end()
 if __name__ == "__main__":
     get_pedidos_amazon_bs()

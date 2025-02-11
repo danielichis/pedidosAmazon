@@ -14,6 +14,9 @@ from PIL import Image
 import time
 import locale
 
+
+date_format={"esp":"%d de %B de %Y","eng":"%B %d, %Y"}
+
 class AmazonSt:
     def __init__(self,dateConfigSheet=None) -> None:
         self.p= sync_playwright().start()
@@ -56,7 +59,7 @@ class AmazonSt:
         self.page.wait_for_selector(pedidosOverview.orderCards_list.selector)
     def get_pdf(self):
         self.page.goto(self.UrlPdf,wait_until="load")
-        self.page.wait_for_selector("//a[text()='Resumen del pedido']",timeout=15000)
+        self.page.wait_for_selector("//a[text()='Order Summary']",timeout=15000)
 
         #getting status of products
         productConditionList=[span.inner_text().strip() for span in self.page.locator("span[class='tiny']").all()]
@@ -67,7 +70,7 @@ class AmazonSt:
             print("Cantidad de filas de pdf y productos coinciden")
             print("Extrayendo los estados de los productos...")
             for i,productCondition in enumerate(productConditionList):
-                conditionProduct=productCondition.split("\n")[-1].replace("Estado:","").strip()
+                conditionProduct=productCondition.split("\n")[-1].replace("Condition:","").strip()
                 products_list[i]["conditionProduct"]=conditionProduct
         
         pdfPath=os.path.join("downloads",f"{self.orderIdOfCard}.pdf")
@@ -80,8 +83,8 @@ class AmazonSt:
         self.shiptmentdate=self.page.query_selector("span[id='primaryStatus'],h1[class='pt-promise-main-slot']").inner_text()
         try:
             self.page.wait_for_selector("div[class='pt-delivery-card-trackingId'],h4[class*='trackingId-text']",timeout=1000)
-            self.trakingId=self.page.query_selector("div[class='pt-delivery-card-trackingId'],h4[class*='trackingId-text']").inner_text().replace("ID de rastreo:","")
-            self.courier=self.page.query_selector("div[class='pt-delivery-card-wrapper'] h3").inner_text().replace("Entrega por","").replace("Enviado con","").strip()
+            self.trakingId=self.page.query_selector("div[class='pt-delivery-card-trackingId'],h4[class*='trackingId-text']").inner_text().replace("Tracking ID:","")
+            self.courier=self.page.query_selector("div[class='pt-delivery-card-wrapper'] h3").inner_text().replace("Shipped with","").replace("Delivery by","").strip()
         except Exception as e:
             print("error en trakingID"+str(e))
             self.trakingId="-"
@@ -90,8 +93,9 @@ class AmazonSt:
 
     def is_order_wanted(self,dateofCard):
         #conver string to date object
-        locale.setlocale(locale.LC_TIME, "es_ES.UTF-8")
-        dateofCard_date = datetime.strptime(dateofCard, '%d de %B de %Y')
+        #locale.setlocale(locale.LC_TIME, "es_ES.UTF-8")
+        dateofCard_date = datetime.strptime(dateofCard, date_format["eng"])
+        #dateofCard_date = datetime.strptime(dateofCard, '%d de %B de %Y')
         dateFrom_date = datetime.strptime(self.dateConfigSheet["DESDE"], '%d/%m/%Y')
         dateTo_date = datetime.strptime(self.dateConfigSheet["HASTA"], '%d/%m/%Y')
         
@@ -118,12 +122,12 @@ class AmazonSt:
                 discount=obj_bill[key].replace("$","").replace(",","")
                 obj_bill["Cupón/Puntos"]=round(obj_bill["Cupón/Puntos"]+float(discount),3)
         finallyBill={
-            "Productos":float(obj_bill["Productos"].replace("$","").replace("\n","").replace(",","")),
-            "Envío":float(obj_bill["Envío"].replace("$","").replace("\n","").replace(",","")),
-            "Descuentos":float(obj_bill["Cupón/Puntos"]),
-            "Total antes de impuestos:":float(obj_bill["Total antes de impuestos"].replace("$","").replace("\n","").replace(",","")),
-            "Impuestos":float(obj_bill["Impuestos"].replace("$","").replace("\n","").replace(",","")),
-            "Total (I.V.A. Incluido)":float(obj_bill["Total (I.V.A. Incluido)"].replace("$","").replace("\n","").replace(",","")),
+            "Item(s) Subtotal":float(obj_bill["Item(s) Subtotal"].replace("$","").replace("\n","").replace(",","")),
+            "Shipping & Handling":float(obj_bill["Shipping & Handling"].replace("$","").replace("\n","").replace(",","")),
+            "Discounts":float(obj_bill["Cupón/Puntos"]),
+            "Total before tax":float(obj_bill["Total before tax"].replace("$","").replace("\n","").replace(",","")),
+            "Estimated tax to be collected":float(obj_bill["Estimated tax to be collected"].replace("$","").replace("\n","").replace(",","")),
+            "Grand Total":float(obj_bill["Grand Total"].replace("$","").replace("\n","").replace(",","")),
         }
         self.info_bill=finallyBill
 
@@ -174,7 +178,7 @@ class AmazonSt:
             except Exception as e:
                 print(str(e))
                 self.conditionProduct="-"
-            self.sellerProduct=product.locator(detallesPedidos.sellerOfProduct.selector).inner_text().replace("Vendido por:","").strip()
+            self.sellerProduct=product.locator(detallesPedidos.sellerOfProduct.selector).inner_text().replace("Sold by:","").strip()
             #self.sellerProduct=product_text[1+offset].replace("Vendido por:","").strip()
             try:
                 #timeout 3s
@@ -247,7 +251,7 @@ class AmazonSt:
             self.get_products_list()
             try:
                 #self.urlTraking=self.shipping.locator("span[class*='track-package-button'] a").get_attribute("href")
-                self.urlTraking=self.shipping.get_by_text("Rastrear paquete").get_attribute("href")
+                self.urlTraking=self.shipping.get_by_text("Track package").get_attribute("href")
                 self.urlTraking=self.urlMain+self.urlTraking
             except:
                 self.urlTraking="sin url"
@@ -297,20 +301,23 @@ class AmazonSt:
     def get_detailsOrderInfo(self):
         self.view="detallesPedidos"
         self.page.wait_for_selector(detallesPedidos.products_list.selector)
-        order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct2.selector).inner_text().split("N.º")[0].replace("Pedido realizado","").strip()
-        self.order_date=datetime.strptime(order_date, '%d de %B de %Y').strftime("%d/%m/%Y")
+        try:
+            order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct2.selector).inner_text().split("Order")[1].replace("placed","").strip()
+        except:
+            order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct1.selector).inner_text().replace("Pedido el","").strip() 
+        self.order_date=datetime.strptime(order_date, date_format["eng"]).strftime("%d/%m/%Y")
         self.get_adress_info()
         try:
             #self.digitCards=self.page.locator("li>span:has(img)").inner_text()
             #Get last 4 character because they contain the digits numbers
-            cardInfo=self.page.locator("li>span:has(img)").first.inner_text().split("que termina en")
+            cardInfo=self.page.locator("li>span:has(img)").first.inner_text().split("ending in")
             self.nameCards=cardInfo[0]
             self.digitCards=int(cardInfo[1])
             #self.digitCards=self.page.locator("li>span:has(img)").first.inner_text()[-4:]
         except:
-            self.digitCards="Sin digitos"
+            self.digitCards="No digits"
         self.get_bill_info()
-        self.UrlPdf=self.page.locator("//span[@class='a-button-inner']/a[contains(text(), 'Ver recibo')]").get_attribute("href")    
+        self.UrlPdf=self.page.locator("//span[@class='a-button-inner']/a[contains(text(), 'View invoice')]").get_attribute("href")    
         self.get_shipping_info()
         self.UrlPdf=self.urlMain+self.UrlPdf
         self.get_pdf()
@@ -340,7 +347,7 @@ class AmazonSt:
         print("------------leyendo pagina")
         self.esperar_lista_paginas()
         orderCards_list=self.page.locator(pedidosOverview.orderCards_list.selector).all()
-        ordersLinks=[orderCard.locator("//a[contains(text(),'Ver detalles del pedido')]").get_attribute("href") for orderCard in orderCards_list]
+        ordersLinks=[orderCard.locator("//a[contains(text(),'View order details')]").get_attribute("href") for orderCard in orderCards_list]
         ordersIds=[orderCard.locator(pedidosOverview.orderIdOfCard.selector).inner_text() for orderCard in orderCards_list]
         ordersDates=[orderCard.locator(pedidosOverview.dateofCard.selector).inner_text() for orderCard in orderCards_list]
         print(f"numero de pedidos:{len(orderCards_list)}")
