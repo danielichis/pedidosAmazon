@@ -455,8 +455,9 @@ def get_pedidos_amazon_st(dates_dict=None):
         amazonPage.scrap_info()
         amazonPage.end()
         return "terminado"
-    except:
-        print("Error al extraer órdenes business")
+    except Exception as e:
+        print("Error al extraer órdenes standard")
+        print(str(e))
         amazonPage.end()
 if __name__ == "__main__":
     get_pedidos_amazon_st()
