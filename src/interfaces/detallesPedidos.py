@@ -15,7 +15,10 @@ sellerOfProduct=localizador("Vendedor de producto","//span[contains(text(),'Vend
 #quantityOfProduct=localizador("Cantidad de producto","span[class='item-view-qty']","css")
 quantityOfProduct=localizador("Cantidad de producto","div[class='od-item-view-qty']>span","css")
 nameOfProduct=localizador("Nombre de producto","div.a-fixed-left-grid div.a-row:first-child a","css")
-dateOfDetailsProduct=localizador("Fecha de detalles de producto","//*[@id='orderDetails']//span[@class='order-date-invoice-item'][1]","xpath")
+
+dateOfDetailsProduct1=localizador("Fecha de detalles de producto","//*[@id='orderDetails']//span[@class='order-date-invoice-item'][1]","xpath")
+dateOfDetailsProduct2=localizador("Fecha de detalles de producto","div[data-component='briefOrderInfo'] span","css")
+
 
 button_traking=localizador("Boton de traking","//a[contains(., 'Rastrear paquete')]","xpath")
 

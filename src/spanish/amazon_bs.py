@@ -333,7 +333,7 @@ class AmazonBs:
     def get_detailsOrderInfo(self):
         self.view="detallesPedidos"
         self.page.wait_for_selector(detallesPedidos.products_list.selector)
-        order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct1.selector).inner_text().replace("Pedido el","").strip()
+        order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct.selector).inner_text().replace("Pedido el","").strip()
         self.order_date=datetime.strptime(order_date, '%d de %B de %Y').strftime("%d/%m/%Y")
         self.get_adress_info()
         try:

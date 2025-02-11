@@ -9,14 +9,12 @@ from tqdm import tqdm
 from pedidosAmazon.src.interfaces import mainView,homeLogin,pedidosOverview,detallesPedidos,trakingView
 from pedidosAmazon.src.utils.functions import previusUrl
 from pedidosAmazon.src.utils.amazonScraping import get_sku_info
-from pedidosAmazon.src.utils.pdfScraping import extract_prod_condition_pdf
+from pedidosAmazon.credentials import credentials
 from PIL import Image
 import time
 import locale
-import requests
-from http.cookies import SimpleCookie
 
-class AmazonBs:
+class AmazonSt:
     def __init__(self,dateConfigSheet=None) -> None:
         self.p= sync_playwright().start()
         self.browser = self.p.chromium.launch_persistent_context(user_data_dir=stt.user_data_dir,headless=stt.headless)
@@ -37,17 +35,13 @@ class AmazonBs:
         if self.dateConfigSheet==None:
             self.dateConfigSheet=self.dateConfig
     def go_to_login(self):
-        self.page.goto(self.urlSignin)
+        self.page.goto(self.urlSignin,timeout=15000)
         self.page.wait_for_url(self.urlSignin)
         print("---->LOGEADO CORRECTAMENTE<----")
 
     def go_to_orders(self):
 
-        if self.acount=='seguimientomkp@unaluka.com':
-            self.page.get_by_role("link", name="Hola Gianfranco Cuenta de").click()
-            self.page.get_by_role("button", name="Tus pedidos Tus pedidos").click()
-        else:
-            self.page.locator(mainView.button_orders.selector).click()
+        self.page.locator(mainView.button_orders.selector).click()
         time.sleep(3)
         if len(self.page.query_selector_all("span[class='a-size-base transaction-approval-word-break']"))>0:
             print(f"La cuenta {self.acount} pide codigo de verificacion")
@@ -55,49 +49,17 @@ class AmazonBs:
             exit()
         if len(self.page.query_selector_all("input[id='signInSubmit']"))>0:
             print(f"La cuenta {self.acount} pide ingresar contraseña nuevamente")
-            exit()
-        self.page.wait_for_selector(pedidosOverview.orderCards_list_bs.selector)
+            time.sleep(2)
+            self.page.get_by_label("Contraseña").fill(credentials[self.acount])
+            self.page.get_by_label("Iniciar sesión").click()
+            #exit()
+        self.page.wait_for_selector(pedidosOverview.orderCards_list.selector)
     def get_pdf(self):
-        #self.page.goto(self.UrlPdf,wait_until="load")
-        ###Getting headers and cookies from request
-        with self.page.expect_request(self.UrlPdf) as request_info:
-            self.page.goto(self.UrlPdf,wait_until="load")
+        self.page.goto(self.UrlPdf,wait_until="load")
+        self.page.wait_for_selector("//a[text()='Resumen del pedido']",timeout=15000)
 
-        request = request_info.value
-        amazon_headers=request.headers
-        amazon_cookies=request.all_headers()['cookie']
-        #print(amazon_headers)
-        #print(amazon_cookies)
-        #Creating cookie object to create cookies dict
-        cookie = SimpleCookie()
-        cookie.load(amazon_cookies)
-        cookies_dict ={ key:morsel.value for key, morsel in cookie.items()}
-
-
-        ##Obtaining location which contain the pdf URL from the response
-        with self.page.expect_response(self.UrlPdf) as response_info:
-            self.page.goto(self.UrlPdf,wait_until="load")
-
-
-        response = response_info.value
-        location=response.headers['location']
-        #print(request.headers)
-
-        ##Obtaining pdf
-        response_pdf = requests.get(
-            self.UrlPdf,
-            cookies=cookies_dict,
-            headers=amazon_headers,
-        )
-
-        print(response_pdf.status_code)
-        pdfPath=os.path.join("downloads",f"{self.orderIdOfCard}.pdf")
-        with open(pdfPath, 'wb') as f:
-            f.write(response_pdf.content)
-        print(f"Se descargó resumen de pedido {self.orderIdOfCard}.")
-        self.view="pdfView"
-        ##Setting the conditions of the products in the dataproductsInfo
-        productConditionList=extract_prod_condition_pdf(pdf_path=pdfPath)
+        #getting status of products
+        productConditionList=[span.inner_text().strip() for span in self.page.locator("span[class='tiny']").all()]
         products_list=[]
         for shipping in self.dataShippings:
             products_list=products_list+shipping["dataProducts"]
@@ -105,8 +67,14 @@ class AmazonBs:
             print("Cantidad de filas de pdf y productos coinciden")
             print("Extrayendo los estados de los productos...")
             for i,productCondition in enumerate(productConditionList):
-                products_list[i]["conditionProduct"]=productCondition
-
+                conditionProduct=productCondition.split("\n")[-1].replace("Estado:","").strip()
+                products_list[i]["conditionProduct"]=conditionProduct
+        
+        pdfPath=os.path.join("downloads",f"{self.orderIdOfCard}.pdf")
+        self.page.pdf(path=pdfPath)
+        self.view="pdfView"
+        #self.page.locator("//a[text()='Resumen del pedido']").click()
+        pass
     def get_trakingInfo(self):
         self.page.wait_for_selector("span[id='primaryStatus'],h1[class='pt-promise-main-slot']")
         self.shiptmentdate=self.page.query_selector("span[id='primaryStatus'],h1[class='pt-promise-main-slot']").inner_text()
@@ -114,8 +82,6 @@ class AmazonBs:
             self.page.wait_for_selector("div[class='pt-delivery-card-trackingId'],h4[class*='trackingId-text']",timeout=1000)
             self.trakingId=self.page.query_selector("div[class='pt-delivery-card-trackingId'],h4[class*='trackingId-text']").inner_text().replace("ID de rastreo:","")
             self.courier=self.page.query_selector("div[class='pt-delivery-card-wrapper'] h3").inner_text().replace("Entrega por","").replace("Enviado con","").strip()
-            
-    
         except Exception as e:
             print("error en trakingID"+str(e))
             self.trakingId="-"
@@ -266,8 +232,7 @@ class AmazonBs:
     def get_shipping_info(self):
         try:
             self.page.wait_for_selector("div[class='a-fixed-left-grid-inner']")
-            self.shippings=self.page.locator("div[class*='a-box shipment'] div[class='a-box-inner']").all()
-            #self.shippings=self.page.locator("div[data-component='shipments'] div[class='a-box-inner']").all()
+            self.shippings=self.page.locator("div[data-component='shipments'] div[class='a-box-inner']").all()
             #self.shippings=self.page.locator("div[class='a-fixed-left-grid-inner']").all()
             # self.page.wait_for_selector("div[class='a-box shipment']")
             # self.shippings=self.page.locator("div[class*='a-box shipment']").all()
@@ -329,11 +294,10 @@ class AmazonBs:
         
         self.adressInfo={"address_name":address_name,"address_street1":address_street1,"address_city":address_city,"address_state":address_state,"address_zip":address_zip,"address_zip_1":address_zip_1,"address_zip_2":address_zip_2}
 
-
     def get_detailsOrderInfo(self):
         self.view="detallesPedidos"
         self.page.wait_for_selector(detallesPedidos.products_list.selector)
-        order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct1.selector).inner_text().replace("Pedido el","").strip()
+        order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct.selector).inner_text().replace("Pedido el","").strip()
         self.order_date=datetime.strptime(order_date, '%d de %B de %Y').strftime("%d/%m/%Y")
         self.get_adress_info()
         try:
@@ -346,8 +310,7 @@ class AmazonBs:
         except:
             self.digitCards="Sin digitos"
         self.get_bill_info()
-        #self.UrlPdf=self.page.locator("//span[@class='a-button-inner']/a[contains(text(), 'Ver o Imprimir Recibo')]").get_attribute("href")    
-        self.UrlPdf=self.page.locator("//span[@class='a-list-item']/a[contains(text(), 'Resumen de pedido para imprimir')]").get_attribute("href") 
+        self.UrlPdf=self.page.locator("//span[@class='a-button-inner']/a[contains(text(), 'Ver o Imprimir Recibo')]").get_attribute("href")    
         self.get_shipping_info()
         self.UrlPdf=self.urlMain+self.UrlPdf
         self.get_pdf()
@@ -364,7 +327,7 @@ class AmazonBs:
         max_retries=5
         retrie=0
         delay=2
-        self.orderCards_list=self.page.locator(pedidosOverview.orderCards_list_bs.selector).all()
+        self.orderCards_list=self.page.locator(pedidosOverview.orderCards_list.selector).all()
         while retrie<max_retries:
             self.orderCards_list=self.page.locator(pedidosOverview.orderCards_list.selector).all()
             if len(self.orderCards_list)==10:
@@ -376,63 +339,43 @@ class AmazonBs:
     def scrap_page(self):
         print("------------leyendo pagina")
         self.esperar_lista_paginas()
-        orderCards_list=self.page.locator(pedidosOverview.orderCards_list_bs.selector).all()
-        #ordersLinks=[orderCard.locator("//a[contains(text(),'Ver detalles del pedido')]").get_attribute("href") for orderCard in orderCards_list]
-        ordersLinks=[]
-        for orderCard in orderCards_list:
-            try:
-                orderLink=orderCard.locator("//a[contains(text(),'Ver detalles del pedido')]").get_attribute("href")
-                ordersLinks.append(orderLink)
-            except:
-                print("Orden no tiene link de rastreo,pasando a la siguiente")
-                orderLink=None
-                ordersLinks.append(orderLink)
-        ordersIds=[orderCard.locator(pedidosOverview.orderIdOfCard_bs.selector).inner_text().replace("Pedido # ","") for orderCard in orderCards_list]
-        ordersDates=[orderCard.locator(pedidosOverview.dateofCard_bs.selector).inner_text() for orderCard in orderCards_list]
+        orderCards_list=self.page.locator(pedidosOverview.orderCards_list.selector).all()
+        ordersLinks=[orderCard.locator("//a[contains(text(),'Ver detalles del pedido')]").get_attribute("href") for orderCard in orderCards_list]
+        ordersIds=[orderCard.locator(pedidosOverview.orderIdOfCard.selector).inner_text() for orderCard in orderCards_list]
+        ordersDates=[orderCard.locator(pedidosOverview.dateofCard.selector).inner_text() for orderCard in orderCards_list]
         print(f"numero de pedidos:{len(orderCards_list)}")
         for i,link in enumerate(ordersLinks):
-            if link:
-                dateofCard=ordersDates[i]
-                self.orderIdOfCard=ordersIds[i]
-                r= self.is_order_wanted(dateofCard)
-                self.status=r
-                print("\n")
-                print(f"pedido {self.orderIdOfCard}-{dateofCard}...")
-                if r=="stop":
-                    print("terminando de leer pedidos")
-                    break
-                elif r=="skip":
-                    print(f"Saltando pedido ...")
-                    continue
-                print(f"leyendo pedido ...")
-                link=self.urlMain+link            
-                #time.sleep(1)
-                self.page.goto(link,wait_until="load")
-                try:
-                    self.get_detailsOrderInfo()
-                except Exception as e:
-                    print("Error al capturar info de producto "+str(e))
-                    print("Pasando a siguiente producto...")
-                    error_data={
-                            "date":ordersDates[i],
-                            "orderId":self.orderIdOfCard,
-                            "nameProduct":"ERROR AL OBTENER INFORMACIÓN DE PRODUCTO"
-                        }
-                    updateGshhet([error_data])
-                    self.view="detallesPedidos"
-                    continue
-
-                self.view="detallesPedidos"
-            else:
-                print("Orden no tiene link de acceso")
+            dateofCard=ordersDates[i]
+            self.orderIdOfCard=ordersIds[i]
+            r= self.is_order_wanted(dateofCard)
+            self.status=r
+            print("\n")
+            print(f"pedido {self.orderIdOfCard}-{dateofCard}...")
+            if r=="stop":
+                print("terminando de leer pedidos")
+                break
+            elif r=="skip":
+                print(f"Saltando pedido ...")
+                continue
+            print(f"leyendo pedido ...")
+            link=self.urlMain+link            
+            #time.sleep(1)
+            self.page.goto(link,wait_until="load")
+            try:
+                self.get_detailsOrderInfo()
+            except Exception as e:
+                print("Error al capturar info de producto "+str(e))
                 print("Pasando a siguiente producto...")
                 error_data={
-                            "date":ordersDates[i],
-                            "orderId":self.orderIdOfCard,
-                            "nameProduct":"ORDEN NO TIENE LINK DE ACCESO"
-                        }
+                        "date":ordersDates[i],
+                        "orderId":self.orderIdOfCard,
+                        "nameProduct":"ERROR AL OBTENER INFORMACIÓN DE PRODUCTO"
+                    }
                 updateGshhet([error_data])
                 self.view="detallesPedidos"
+                continue
+
+            self.view="detallesPedidos"
             
     def switch_to_tab(self,tab):
         if tab>1:
@@ -444,16 +387,13 @@ class AmazonBs:
     def scrap_account(self):
         self.go_to_orders()
         tab=1
-        try:
-            self.page.wait_for_selector(pedidosOverview.button_next.selector)
-        except:
-            pass
+        self.page.wait_for_selector(pedidosOverview.button_next.selector)
         self.view="pedidosOverview"
         self.status="scrap"
         while True:
-            # if len(self.page.query_selector_all(pedidosOverview.button_next.selector))==0:
-            #     print(f"SIN BOTON NEXT,terminando de leer pedidos en cuenta {self.acount}")
-            #     break
+            if len(self.page.query_selector_all(pedidosOverview.button_next.selector))==0:
+                print(f"SIN BOTON NEXT,terminando de leer pedidos en cuenta {self.acount}")
+                break
             self.switch_to_tab(tab)
             self.scrap_page()
             if self.status=="stop":
@@ -475,7 +415,9 @@ class AmazonBs:
         for account in acounts_strings:
             selectorAcount=f"//div[contains(text(),'{account}')]"
             self.acount=account
-            if account!='seguimientomkp@unaluka.com':
+            
+            if account=='seguimientomkp@unaluka.com':
+            #if account!='logistica@unaluka.com': 
                 continue
             self.page.locator(selectorAcount).click()
             #wait load page
@@ -492,11 +434,12 @@ class AmazonBs:
                 exit()
             if len(self.page.query_selector_all("input[id='signInSubmit']"))>0:
                 print(f"La cuenta {self.acount} pide ingresar contraseña nuevamente")
-                exit()
+                time.sleep(2)
+                self.page.get_by_label("Contraseña").fill(credentials[account])
+                self.page.get_by_label("Iniciar sesión").click()
+                #exit()
 
-
-
-            #self.page.wait_for_selector(mainView.button_orders.selector)
+            self.page.wait_for_selector(mainView.button_orders.selector)
             print(f"leyendo en cuenta:{self.acount}")
             self.scrap_account()
             self.go_to_login()
@@ -505,9 +448,9 @@ class AmazonBs:
         self.page.close()
         self.browser.close()
         self.p.stop()
-def get_pedidos_amazon_bs(dates_dict=None):
+def get_pedidos_amazon_st(dates_dict=None):
     try:
-        amazonPage=AmazonBs(dateConfigSheet=dates_dict)
+        amazonPage=AmazonSt(dateConfigSheet=dates_dict)
         amazonPage.go_to_login()
         amazonPage.scrap_info()
         amazonPage.end()
@@ -516,7 +459,7 @@ def get_pedidos_amazon_bs(dates_dict=None):
         print("Error al extraer órdenes business")
         amazonPage.end()
 if __name__ == "__main__":
-    get_pedidos_amazon_bs()
+    get_pedidos_amazon_st()
 
     
 

@@ -297,7 +297,7 @@ class AmazonSt:
     def get_detailsOrderInfo(self):
         self.view="detallesPedidos"
         self.page.wait_for_selector(detallesPedidos.products_list.selector)
-        order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct.selector).inner_text().replace("Pedido el","").strip()
+        order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct2.selector).inner_text().split("N.º")[0].replace("Pedido realizado","").strip()
         self.order_date=datetime.strptime(order_date, '%d de %B de %Y').strftime("%d/%m/%Y")
         self.get_adress_info()
         try:
@@ -310,7 +310,7 @@ class AmazonSt:
         except:
             self.digitCards="Sin digitos"
         self.get_bill_info()
-        self.UrlPdf=self.page.locator("//span[@class='a-button-inner']/a[contains(text(), 'Ver o Imprimir Recibo')]").get_attribute("href")    
+        self.UrlPdf=self.page.locator("//span[@class='a-button-inner']/a[contains(text(), 'Ver recibo')]").get_attribute("href")    
         self.get_shipping_info()
         self.UrlPdf=self.urlMain+self.UrlPdf
         self.get_pdf()
