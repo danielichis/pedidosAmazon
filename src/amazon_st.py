@@ -86,7 +86,7 @@ class AmazonSt:
             self.trakingId=self.page.query_selector("div[class='pt-delivery-card-trackingId'],h4[class*='trackingId-text']").inner_text().replace("Tracking ID:","")
             self.courier=self.page.query_selector("div[class='pt-delivery-card-wrapper'] h3").inner_text().replace("Shipped with","").replace("Delivery by","").strip()
         except Exception as e:
-            print("error en trakingID"+str(e))
+            print("error en trackingID"+str(e))
             self.trakingId="-"
             self.courier="-"
 
@@ -245,8 +245,7 @@ class AmazonSt:
             self.shippings=self.page.locator("div[class*='a-box-group']").all()
 
         self.dataShippings=[]
-        if len(self.shippings)==2:
-            print("2 envíos")
+
         for self.shipping in self.shippings:
             self.get_products_list()
             try:
