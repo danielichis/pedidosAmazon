@@ -5,14 +5,22 @@ import re
 import json
 from playwright.sync_api import sync_playwright,expect
 
-def get_amazon_html(purchase_url:str):
+def get_amazon_html(purchase_url:str,lang_option="esp"):
+
+    #Dictionary to set the header option that defines the language of the page
+    language={
+        'esp':'es_US',
+        'eng':'en-US'
+    }
+
     cookies = {
         'session-id': '138-3363892-2334805',
         'session-id-time': '2082787201l',
         'i18n-prefs': 'USD',
         'sp-cdn': '"L5Z9:PE"',
         'ubid-main': '135-7500017-8187530',
-        'lc-main': 'es_US',
+        #'lc-main': 'es_US',
+        'lc-main': language[lang_option],
         'csm-hit': 'tb:42029YQ73ZR4Z693WDX2+s-1K8W6D050VS3RN9YGNDS|1726945361664&t:1726945361664&adb:adblk_yes',
         'session-token': 'BCeB0cRWvX5aauM9Jjl7P80R/4cQw/ADCCGTPXq9VhQwpusheeH94NgYUJXID51fiCamFYVSJdfz2n2ovb51gBbCsWJ3ZG8kW/C5QhvmkWCVHJ1EEqjYMyGfZGw33Wf0Md5vbMH3v+X48laymcN6X9AHA8hT3zePSSCE+Vq7Od7lmBF8yEOw7e5Hf9TtrsmuOQsWmr6gBqtTp3qNCFmt7t6y8lyIXvL5CHpSpIoPwimEdvo7sRgHK5jiWpZLXxv/GLKwQaoTpie6ggQU3jR35azljWZ0mJgkwr7hSa/flyS5Dkaa6vVONezZ2yU4o0KBVE4Ffn96hYNtOFaD6fkrIxg6HSNxgMDd',
     }
@@ -45,6 +53,7 @@ def get_amazon_html(purchase_url:str):
     response = requests.get(purchase_url, cookies=cookies, headers=headers)
     print(response.status_code)
     if response.status_code==200:
+        print("Se obtuvo HTML del producto exitosamente")
         amazon_html=HTMLParser(response.text)
         with open("purchase_html.html","w",encoding="utf-8") as f:
             f.write(response.text)
@@ -248,7 +257,7 @@ if __name__ == "__main__":
     # }
     # print(sku_info)
     # skus_info.append(sku_info)
-
+    get_amazon_html(purchase_url[-1])
     sku_info=get_sku_info(purchase_url[-1])
     brand=search_sku_brand(sku_info)
     print(brand)
