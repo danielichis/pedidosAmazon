@@ -3,7 +3,7 @@ from pedidosAmazon.src.utils.selectores import localizador
 directions_list=localizador("Lista de direcciones","div[class='displayAddressDiv'] li","css")
 digitCards=localizador("Tarjetas de digitos","h5+div img+span","css")
 
-summaryConcept_list=localizador("Lista de conceptos de resumen","div[id='od-subtotals'] div[class='a-row']","css")
+summaryConcept_list=localizador("Lista de conceptos de resumen","div[id='od-subtotals'] div[class*='a-row']","css")
 nameOfSummaryConcept=localizador("Nombre de concepto de resumen","div:nth-child(1)","css")
 valueOfSummaryConcept=localizador("Valor de concepto de resumen","div:nth-child(2)","css")
 
@@ -19,6 +19,7 @@ nameOfProduct=localizador("Nombre de producto","div.a-fixed-left-grid div.a-row:
 
 dateOfDetailsProduct1=localizador("Fecha de detalles de producto","//*[@id='orderDetails']//span[@class='order-date-invoice-item'][1]","xpath")
 dateOfDetailsProduct2=localizador("Fecha de detalles de producto","div[data-component='briefOrderInfo'] span","css")
+dateOfDetailsProduct3=localizador("Fecha de detalles de producto","div[data-component='orderDate'] span","css")
 
 
 button_traking=localizador("Boton de traking","//a[contains(., 'Rastrear paquete')]","xpath")

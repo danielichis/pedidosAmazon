@@ -53,8 +53,8 @@ class AmazonSt:
         if len(self.page.query_selector_all("input[id='signInSubmit']"))>0:
             print(f"La cuenta {self.acount} pide ingresar contraseña nuevamente")
             time.sleep(2)
-            self.page.get_by_label("Contraseña").fill(credentials[self.acount])
-            self.page.get_by_label("Iniciar sesión").click()
+            self.page.get_by_label("Password").fill(credentials[self.acount])
+            self.page.get_by_label("Sign in").click()
             #exit()
         self.page.wait_for_selector(pedidosOverview.orderCards_list.selector)
     def get_pdf(self):
@@ -109,6 +109,12 @@ class AmazonSt:
     
     def get_bill_info(self):
         summaryBill=self.page.locator(detallesPedidos.summaryConcept_list.selector).all_inner_texts()
+        
+        if "Order Summary" in summaryBill:
+            summaryBill.remove("Order Summary")
+        #removing empty strings
+        summaryBill=[x for x in summaryBill if x]
+
         obj_bill={}
         for row in summaryBill:
             key,value=row.split(":")
@@ -301,9 +307,9 @@ class AmazonSt:
         self.view="detallesPedidos"
         self.page.wait_for_selector(detallesPedidos.products_list.selector)
         try:
-            order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct2.selector).inner_text().split("Order")[1].replace("placed","").strip()
+            order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct3.selector).inner_text().strip()
         except:
-            order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct1.selector).inner_text().replace("Pedido el","").strip() 
+            order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct2.selector).inner_text().split("Order")[1].replace("placed","").strip()
         self.order_date=datetime.strptime(order_date, date_format["eng"]).strftime("%d/%m/%Y")
         self.get_adress_info()
         try:
@@ -375,7 +381,7 @@ class AmazonSt:
                 error_data={
                         "date":ordersDates[i],
                         "orderId":self.orderIdOfCard,
-                        "nameProduct":"ERROR AL OBTENER INFORMACIÓN DE PRODUCTO"
+                        "nameProduct":"ERROR AL OBTENER INFORMACIÓN DE PRODUCTO"+str(e)
                     }
                 updateGshhet([error_data])
                 self.view="detallesPedidos"
@@ -422,8 +428,7 @@ class AmazonSt:
             selectorAcount=f"//div[contains(text(),'{account}')]"
             self.acount=account
             
-            if account=='seguimientomkp@unaluka.com':
-            #if account!='logistica@unaluka.com': 
+            if account=='seguimientomkp@unaluka.com':# or account=='compras@unaluka.com':
                 continue
             self.page.locator(selectorAcount).click()
             #wait load page
@@ -441,8 +446,8 @@ class AmazonSt:
             if len(self.page.query_selector_all("input[id='signInSubmit']"))>0:
                 print(f"La cuenta {self.acount} pide ingresar contraseña nuevamente")
                 time.sleep(2)
-                self.page.get_by_label("Contraseña").fill(credentials[account])
-                self.page.get_by_label("Iniciar sesión").click()
+                self.page.get_by_label("Password").fill(credentials[account])
+                self.page.get_by_label("Sign in").click()
                 #exit()
 
             self.page.wait_for_selector(mainView.button_orders.selector)

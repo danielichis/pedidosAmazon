@@ -145,14 +145,11 @@ class AmazonBs:
         summaryBill=self.page.locator(detallesPedidos.summaryConcept_list.selector).all_inner_texts()
         obj_bill={}
         for row in summaryBill:
-            if row!="":
-                key,value=row.split(":")
-                obj_bill[key]=value
-            else:
-                print("Se encontró fila vacía en la cuenta(Billing),saltando fila")
+            key,value=row.split(":")
+            obj_bill[key]=value
         keysDiscount=list(obj_bill.keys())
 
-        list_keys_discount=["Buy any 4, Save 5%","Deal of the Day","Your Coupon Savings","Promotion Applied","Envío gratis","Free Shipping","Promotional credit","Saldo Amazon","Crédito de cortesía"]
+        list_keys_discount=["Buy any 4, Save 5%","Deal of the Day","Your Coupon Savings","Promotion Applied","Envío gratis","Free Shipping","Promotional credit","Saldo Amazon"]
         obj_bill["Cupón/Puntos"]=0
         for key in list_keys_discount:
             if key in keysDiscount:
@@ -433,7 +430,6 @@ class AmazonBs:
 
                 self.view="detallesPedidos"
             else:
-                self.orderIdOfCard=ordersIds[i]
                 print("Orden no tiene link de acceso")
                 print("Pasando a siguiente producto...")
                 error_data={

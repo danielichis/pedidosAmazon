@@ -8,14 +8,16 @@ from pedidosAmazon.src.utils.autoWaits import retry_on_exception
 from tqdm import tqdm
 from pedidosAmazon.src.interfaces import mainView,homeLogin,pedidosOverview,detallesPedidos,trakingView
 from pedidosAmazon.src.utils.functions import previusUrl
+from pedidosAmazon.src.utils.amazonScraping import get_sku_info
+from pedidosAmazon.credentials import credentials
 from PIL import Image
 import time
 import locale
-import json
-from pedidosAmazon.src.amazon_st import AmazonSt,get_pedidos_amazon_st
-from pedidosAmazon.src.amazon_bs import AmazonBs,get_pedidos_amazon_bs
 
-class Amazon:
+
+date_format={"esp":"%d de %B de %Y","eng":"%B %d, %Y"}
+
+class AmazonSt:
     def __init__(self,dateConfigSheet=None) -> None:
         self.p= sync_playwright().start()
         self.browser = self.p.chromium.launch_persistent_context(user_data_dir=stt.user_data_dir,headless=stt.headless)
@@ -36,11 +38,12 @@ class Amazon:
         if self.dateConfigSheet==None:
             self.dateConfigSheet=self.dateConfig
     def go_to_login(self):
-        self.page.goto(self.urlSignin)
+        self.page.goto(self.urlSignin,timeout=15000)
         self.page.wait_for_url(self.urlSignin)
         print("---->LOGEADO CORRECTAMENTE<----")
 
     def go_to_orders(self):
+
         self.page.locator(mainView.button_orders.selector).click()
         time.sleep(3)
         if len(self.page.query_selector_all("span[class='a-size-base transaction-approval-word-break']"))>0:
@@ -49,11 +52,27 @@ class Amazon:
             exit()
         if len(self.page.query_selector_all("input[id='signInSubmit']"))>0:
             print(f"La cuenta {self.acount} pide ingresar contraseña nuevamente")
-            exit()
+            time.sleep(2)
+            self.page.get_by_label("Password").fill(credentials[self.acount])
+            self.page.get_by_label("Sign in").click()
+            #exit()
         self.page.wait_for_selector(pedidosOverview.orderCards_list.selector)
     def get_pdf(self):
         self.page.goto(self.UrlPdf,wait_until="load")
-        self.page.wait_for_selector("//a[text()='Resumen del pedido']")
+        self.page.wait_for_selector("//a[text()='Order Summary']",timeout=15000)
+
+        #getting status of products
+        productConditionList=[span.inner_text().strip() for span in self.page.locator("span[class='tiny']").all()]
+        products_list=[]
+        for shipping in self.dataShippings:
+            products_list=products_list+shipping["dataProducts"]
+        if len(productConditionList)==len(products_list):
+            print("Cantidad de filas de pdf y productos coinciden")
+            print("Extrayendo los estados de los productos...")
+            for i,productCondition in enumerate(productConditionList):
+                conditionProduct=productCondition.split("\n")[-1].replace("Condition:","").strip()
+                products_list[i]["conditionProduct"]=conditionProduct
+        
         pdfPath=os.path.join("downloads",f"{self.orderIdOfCard}.pdf")
         self.page.pdf(path=pdfPath)
         self.view="pdfView"
@@ -64,16 +83,19 @@ class Amazon:
         self.shiptmentdate=self.page.query_selector("span[id='primaryStatus'],h1[class='pt-promise-main-slot']").inner_text()
         try:
             self.page.wait_for_selector("div[class='pt-delivery-card-trackingId'],h4[class*='trackingId-text']",timeout=1000)
-            self.trakingId=self.page.query_selector("div[class='pt-delivery-card-trackingId'],h4[class*='trackingId-text']").inner_text()
+            self.trakingId=self.page.query_selector("div[class='pt-delivery-card-trackingId'],h4[class*='trackingId-text']").inner_text().replace("Tracking ID:","")
+            self.courier=self.page.query_selector("div[class='pt-delivery-card-wrapper'] h3").inner_text().replace("Shipped with","").replace("Delivery by","").strip()
         except Exception as e:
-            print("error en trakingID"+str(e))
+            print("error en trackingID"+str(e))
             self.trakingId="-"
+            self.courier="-"
 
 
     def is_order_wanted(self,dateofCard):
         #conver string to date object
-        locale.setlocale(locale.LC_TIME, "es_ES.UTF-8")
-        dateofCard_date = datetime.strptime(dateofCard, '%d de %B de %Y')
+        #locale.setlocale(locale.LC_TIME, "es_ES.UTF-8")
+        dateofCard_date = datetime.strptime(dateofCard, date_format["eng"])
+        #dateofCard_date = datetime.strptime(dateofCard, '%d de %B de %Y')
         dateFrom_date = datetime.strptime(self.dateConfigSheet["DESDE"], '%d/%m/%Y')
         dateTo_date = datetime.strptime(self.dateConfigSheet["HASTA"], '%d/%m/%Y')
         
@@ -100,30 +122,64 @@ class Amazon:
                 discount=obj_bill[key].replace("$","").replace(",","")
                 obj_bill["Cupón/Puntos"]=round(obj_bill["Cupón/Puntos"]+float(discount),3)
         finallyBill={
-            "Productos":float(obj_bill["Productos"].replace("$","").replace("\n","").replace(",","")),
-            "Envío":float(obj_bill["Envío"].replace("$","").replace("\n","").replace(",","")),
-            "Descuentos":float(obj_bill["Cupón/Puntos"]),
-            "Total antes de impuestos:":float(obj_bill["Total antes de impuestos"].replace("$","").replace("\n","").replace(",","")),
-            "Impuestos":float(obj_bill["Impuestos"].replace("$","").replace("\n","").replace(",","")),
-            "Total (I.V.A. Incluido)":float(obj_bill["Total (I.V.A. Incluido)"].replace("$","").replace("\n","").replace(",","")),
+            "Item(s) Subtotal":float(obj_bill["Item(s) Subtotal"].replace("$","").replace("\n","").replace(",","")),
+            "Shipping & Handling":float(obj_bill["Shipping & Handling"].replace("$","").replace("\n","").replace(",","")),
+            "Discounts":float(obj_bill["Cupón/Puntos"]),
+            "Total before tax":float(obj_bill["Total before tax"].replace("$","").replace("\n","").replace(",","")),
+            "Estimated tax to be collected":float(obj_bill["Estimated tax to be collected"].replace("$","").replace("\n","").replace(",","")),
+            "Grand Total":float(obj_bill["Grand Total"].replace("$","").replace("\n","").replace(",","")),
         }
         self.info_bill=finallyBill
+
+    def search_product_brand(self):
+        sku_info=get_sku_info(self.linkProduct)
+        for category,info in sku_info.items():
+            print("Buscando en "+category+"...")
+            if "Marca" in info.keys():
+                print("Se encontró Marca")
+                return info["Marca"].upper()
+            elif "Fabricante" in info.keys():
+                print("Se encontró Fabricante")
+                return info["Fabricante"].upper()
+        
+        print("No se encontró Marca o Fabricante")
+        return "---No se encontró Marca,buscar manualmente---"
+
         
     def get_products_list(self):
         #another idea
         #self.page.locator("div[class='a-fixed-left-grid-inner']").inner_text()
         self.products_list=self.shipping.locator(detallesPedidos.products_list.selector).all()
+        #self.products_list=self.shippings
+        #studycase 112-7005829-6740208
+        #self.products_list=[product.inner_text().split("\n") for product in self.shippings]
         self.dataProducts=[]
         for product in self.products_list:
-            self.priceProduct=product.locator(detallesPedidos.priceOfProduct.selector).inner_text()
-            self.priceProduct=float(self.priceProduct.replace("$","").replace("\n","").replace(",",""))
+            product_text=product.inner_text().split("\n")
+            if len(product_text)==6:
+                offset=1
+                self.quantityProduct=product_text[0]
+                print("Cantidad del producto mayor a 1")
+            else:
+                offset=0
+                self.quantityProduct=1
+
+
+            # if len(product_text)==5:
+            #     offset=0
+            #     self.quantityProduct=1
+
+            self.priceProduct=product.locator(detallesPedidos.priceOfProduct2.selector).first.inner_text().replace("US$","").replace("$","")
+            #self.priceProduct=float(self.priceProduct.replace("$","").replace("\n","").replace(",",""))
+            #self.priceProduct=product_text[2+offset].replace("US$","").replace("$","")
             try:
                 self.conditionProduct="-"
                 #self.conditionProduct=product.locator(detallesPedidos.conditionOfProduct.selector).inner_text()
             except Exception as e:
                 print(str(e))
                 self.conditionProduct="-"
-            self.sellerProduct=product.locator(detallesPedidos.sellerOfProduct.selector).inner_text()
+            self.sellerProduct=product.locator(detallesPedidos.sellerOfProduct.selector).inner_text().replace("Sold by:","").strip()
+            #self.sellerProduct=product_text[1+offset].replace("Vendido por:","").strip()
             try:
                 #timeout 3s
                 self.page.wait_for_selector(detallesPedidos.quantityOfProduct.selector,timeout=1000)
@@ -132,7 +188,20 @@ class Amazon:
                 print("error en cantidad:"+str(e))
                 self.quantityProduct=1
             self.nameProduct=product.locator("div[class*='a-fixed-left-grid'] div[class*='a-row']:first-child>a").inner_text()
-            products_dict={"nameProduct":self.nameProduct,"priceProduct":self.priceProduct,"conditionProduct":self.conditionProduct,"sellerProduct":self.sellerProduct,"quantityProduct":self.quantityProduct}
+            self.linkProduct=self.urlMain+product.locator("div[class*='a-fixed-left-grid'] div[class*='a-row']:first-child>a").get_attribute("href")
+
+            #self.nameProduct=product_text[0+offset]
+
+            #brand
+            self.brandProduct=self.search_product_brand()
+
+            products_dict={"nameProduct":self.nameProduct,
+                           "priceProduct":self.priceProduct,
+                           "conditionProduct":self.conditionProduct,
+                           "sellerProduct":self.sellerProduct,
+                           "quantityProduct":self.quantityProduct,
+                           "linkProduct":self.linkProduct,
+                           "brandProduct":self.brandProduct}
             self.dataProducts.append(products_dict)
 
     def createData(self):
@@ -145,14 +214,18 @@ class Amazon:
                         "date":self.order_date,
                         "orderId":self.orderIdOfCard,
                         "nameProduct":product["nameProduct"],
+                        "linkProduct":product["linkProduct"],
+                        "brand":product["brandProduct"],
                         "Condition":product["conditionProduct"],
                         "Seller":product["sellerProduct"],
                         "Quantity":1,
                         "Price":product["priceProduct"],
-                        "Payment Instrument Type":self.digitCards,
+                        "Payment Instrument Card":self.nameCards,
+                        "Payment Instrument Numbers":self.digitCards,
                         "Ordering Customer Email":self.acount,
                         "shiptmentdate":ship["shiptmentdate"],
                         **self.adressInfo,
+                        "courier":ship["courier"],
                         "trakingId":ship["trakingId"],
                         **self.info_bill
                     }
@@ -162,21 +235,26 @@ class Amazon:
         
     def get_shipping_info(self):
         try:
-            self.page.wait_for_selector("div[class*='a-box shipment']")
-            self.shippings=self.page.locator("div[class*='a-box shipment']").all()
+            self.page.wait_for_selector("div[class='a-fixed-left-grid-inner']")
+            self.shippings=self.page.locator("div[data-component='shipments'] div[class='a-box-inner']").all()
+            #self.shippings=self.page.locator("div[class='a-fixed-left-grid-inner']").all()
+            # self.page.wait_for_selector("div[class='a-box shipment']")
+            # self.shippings=self.page.locator("div[class*='a-box shipment']").all()
         except:
             self.page.wait_for_selector("div[class*='a-box-group']")
             self.shippings=self.page.locator("div[class*='a-box-group']").all()
 
         self.dataShippings=[]
+
         for self.shipping in self.shippings:
             self.get_products_list()
             try:
-                self.urlTraking=self.shipping.locator("span[class*='track-package-button'] a").get_attribute("href")
+                #self.urlTraking=self.shipping.locator("span[class*='track-package-button'] a").get_attribute("href")
+                self.urlTraking=self.shipping.get_by_text("Track package").get_attribute("href")
                 self.urlTraking=self.urlMain+self.urlTraking
             except:
                 self.urlTraking="sin url"
-            self.dataShippings.append({"urlTraking":self.urlTraking,"dataProducts":self.dataProducts,"shiptmentdate":"sin rastreo","trakingId":"sin rastreo"})
+            self.dataShippings.append({"urlTraking":self.urlTraking,"dataProducts":self.dataProducts,"shiptmentdate":"sin rastreo","trakingId":"sin rastreo","courier":"sin rastreo"})
         
         for dataShipping in self.dataShippings:
             if dataShipping["urlTraking"]!="sin url":
@@ -184,6 +262,7 @@ class Amazon:
                 self.get_trakingInfo()
                 dataShipping["shiptmentdate"]=self.shiptmentdate
                 dataShipping["trakingId"]=self.trakingId
+                dataShipping["courier"]=self.courier
             
     def get_adress_info(self):
         self.directions_list=self.page.locator(detallesPedidos.directions_list.selector).all_inner_texts()
@@ -207,19 +286,37 @@ class Amazon:
             address_zip=self.directions_list[3].split(",")[1]
         except:
             address_zip="-"
-        self.adressInfo={"address_name":address_name,"address_street1":address_street1,"address_city":address_city,"address_state":address_state,"address_zip":address_zip}
+
+        #Splitting address zip
+
+        address_zip_list=address_zip.strip().split(" ")
+        if len(address_zip_list)==2:
+            address_zip_1,address_zip_2=address_zip_list[0],address_zip_list[1]
+        else:
+            address_zip_1,address_zip_2="-","-"
+        
+        self.adressInfo={"address_name":address_name,"address_street1":address_street1,"address_city":address_city,"address_state":address_state,"address_zip":address_zip,"address_zip_1":address_zip_1,"address_zip_2":address_zip_2}
 
     def get_detailsOrderInfo(self):
         self.view="detallesPedidos"
         self.page.wait_for_selector(detallesPedidos.products_list.selector)
-        self.order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct.selector).inner_text()
+        try:
+            order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct3.selector).inner_text().strip()
+        except:
+            order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct2.selector).inner_text().split("Order")[1].replace("placed","").strip()
+        self.order_date=datetime.strptime(order_date, date_format["eng"]).strftime("%d/%m/%Y")
         self.get_adress_info()
         try:
-            self.digitCards=self.page.locator("li>span:has(img)").inner_text()
+            #self.digitCards=self.page.locator("li>span:has(img)").inner_text()
+            #Get last 4 character because they contain the digits numbers
+            cardInfo=self.page.locator("li>span:has(img)").first.inner_text().split("ending in")
+            self.nameCards=cardInfo[0]
+            self.digitCards=int(cardInfo[1])
+            #self.digitCards=self.page.locator("li>span:has(img)").first.inner_text()[-4:]
         except:
-            self.digitCards="Sin digitos"
+            self.digitCards="No digits"
         self.get_bill_info()
-        self.UrlPdf=self.page.locator("//span[@class='a-button-inner']/a[contains(text(), 'Ver o Imprimir Recibo')]").get_attribute("href")    
+        self.UrlPdf=self.page.locator("//span[@class='a-button-inner']/a[contains(text(), 'View invoice')]").get_attribute("href")    
         self.get_shipping_info()
         self.UrlPdf=self.urlMain+self.UrlPdf
         self.get_pdf()
@@ -235,7 +332,7 @@ class Amazon:
     def esperar_lista_paginas(self):
         max_retries=5
         retrie=0
-        delay=1
+        delay=2
         self.orderCards_list=self.page.locator(pedidosOverview.orderCards_list.selector).all()
         while retrie<max_retries:
             self.orderCards_list=self.page.locator(pedidosOverview.orderCards_list.selector).all()
@@ -249,7 +346,7 @@ class Amazon:
         print("------------leyendo pagina")
         self.esperar_lista_paginas()
         orderCards_list=self.page.locator(pedidosOverview.orderCards_list.selector).all()
-        ordersLinks=[orderCard.locator("//a[contains(text(),'Ver detalles del pedido')]").get_attribute("href") for orderCard in orderCards_list]
+        ordersLinks=[orderCard.locator("//a[contains(text(),'View order details')]").get_attribute("href") for orderCard in orderCards_list]
         ordersIds=[orderCard.locator(pedidosOverview.orderIdOfCard.selector).inner_text() for orderCard in orderCards_list]
         ordersDates=[orderCard.locator(pedidosOverview.dateofCard.selector).inner_text() for orderCard in orderCards_list]
         print(f"numero de pedidos:{len(orderCards_list)}")
@@ -270,7 +367,20 @@ class Amazon:
             link=self.urlMain+link            
             #time.sleep(1)
             self.page.goto(link,wait_until="load")
-            self.get_detailsOrderInfo()
+            try:
+                self.get_detailsOrderInfo()
+            except Exception as e:
+                print("Error al capturar info de producto "+str(e))
+                print("Pasando a siguiente producto...")
+                error_data={
+                        "date":ordersDates[i],
+                        "orderId":self.orderIdOfCard,
+                        "nameProduct":"ERROR AL OBTENER INFORMACIÓN DE PRODUCTO"
+                    }
+                updateGshhet([error_data])
+                self.view="detallesPedidos"
+                continue
+
             self.view="detallesPedidos"
             
     def switch_to_tab(self,tab):
@@ -311,13 +421,17 @@ class Amazon:
         for account in acounts_strings:
             selectorAcount=f"//div[contains(text(),'{account}')]"
             self.acount=account
+            
+            if account=='seguimientomkp@unaluka.com':
+            #if account!='logistica@unaluka.com': 
+                continue
             self.page.locator(selectorAcount).click()
             #wait load page
             self.page.wait_for_load_state("load")
             time.sleep(3)
             #goto spanish language account
             #self.page.goto("https://www.amazon.com/?ref_=nav_youraccount_switchacct&language=es_US")
-            self.page.wait_for_load_state("networkidle")
+            #self.page.wait_for_load_state("networkidle")
             self.page.wait_for_load_state("load")
             time.sleep(3)
             if len(self.page.query_selector_all("span[class='a-size-base transaction-approval-word-break']"))>0:
@@ -326,7 +440,11 @@ class Amazon:
                 exit()
             if len(self.page.query_selector_all("input[id='signInSubmit']"))>0:
                 print(f"La cuenta {self.acount} pide ingresar contraseña nuevamente")
-                exit()
+                time.sleep(2)
+                self.page.get_by_label("Password").fill(credentials[account])
+                self.page.get_by_label("Sign in").click()
+                #exit()
+
             self.page.wait_for_selector(mainView.button_orders.selector)
             print(f"leyendo en cuenta:{self.acount}")
             self.scrap_account()
@@ -336,32 +454,19 @@ class Amazon:
         self.page.close()
         self.browser.close()
         self.p.stop()
-
-def read_credentials_json():
-    with open("pedidosAmazon/credentials.json") as f:
-        data = json.load(f)
-    return data
-
-
-
-def get_pedidos_amazon(dates_dict=None):
-    print("Extrayendo pedidos de cuentas Business")
-    get_pedidos_amazon_bs(dates_dict)
-    #amazonPageBs=AmazonBs(dates_dict)
-    #amazonPageBs.go_to_login()
-    #amazonPageBs.scrap_info()
-    #amazonPageBs.end()
-    print("Extrayendo pedidos de cuentas Standard")
-    get_pedidos_amazon_st(dates_dict)
-    #amazonPageSt=AmazonSt(dates_dict)
-    #amazonPageSt.go_to_login()
-    #amazonPageSt.scrap_info()
-    #amazonPageSt.end()
-    print("terminado")
-    return "terminado"
-
+def get_pedidos_amazon_st(dates_dict=None):
+    try:
+        amazonPage=AmazonSt(dateConfigSheet=dates_dict)
+        amazonPage.go_to_login()
+        amazonPage.scrap_info()
+        amazonPage.end()
+        return "terminado"
+    except Exception as e:
+        print("Error al extraer órdenes standard")
+        print(str(e))
+        amazonPage.end()
 if __name__ == "__main__":
-    get_pedidos_amazon()
+    get_pedidos_amazon_st()
 
     
 
