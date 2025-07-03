@@ -354,7 +354,11 @@ class AmazonSt:
         orderCards_list=self.page.locator(pedidosOverview.orderCards_list.selector).all()
         ordersLinks=[orderCard.locator("//a[contains(text(),'View order details')]").get_attribute("href") for orderCard in orderCards_list]
         ordersIds=[orderCard.locator(pedidosOverview.orderIdOfCard.selector).inner_text() for orderCard in orderCards_list]
-        ordersDates=[orderCard.locator(pedidosOverview.dateofCard.selector).inner_text() for orderCard in orderCards_list]
+        try:
+            ordersDates=[orderCard.locator(pedidosOverview.dateofCard.selector).inner_text() for orderCard in orderCards_list]
+        except:
+            print("Probando segundo locator para capturar fechas en cuentas standard")
+            ordersDates=[orderCard.locator(pedidosOverview.dateofCard_2.selector).inner_text() for orderCard in orderCards_list]
         print(f"numero de pedidos:{len(orderCards_list)}")
         for i,link in enumerate(ordersLinks):
             dateofCard=ordersDates[i]
