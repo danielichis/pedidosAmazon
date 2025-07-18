@@ -1,6 +1,7 @@
 from pedidosAmazon.src.utils.selectores import localizador
 
 directions_list=localizador("Lista de direcciones","div[class='displayAddressDiv'] li","css")
+directions_list2=localizador("Lista de direcciones","div[data-component='shippingAddress'] li","css")
 digitCards=localizador("Tarjetas de digitos","h5+div img+span","css")
 
 summaryConcept_list=localizador("Lista de conceptos de resumen","div[id='od-subtotals'] div[class*='a-row']","css")

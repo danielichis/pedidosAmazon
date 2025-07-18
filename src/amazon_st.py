@@ -271,7 +271,20 @@ class AmazonSt:
                 dataShipping["courier"]=self.courier
             
     def get_adress_info(self):
-        self.directions_list=self.page.locator(detallesPedidos.directions_list.selector).all_inner_texts()
+        directions_list_1=self.page.locator(detallesPedidos.directions_list.selector).all_inner_texts()
+        directions_list_2=self.page.locator(detallesPedidos.directions_list2.selector).all_inner_texts()
+        if len(directions_list_1)>0:
+            self.directions_list=directions_list_1
+        elif len(directions_list_2)>0:
+            self.directions_list=directions_list_2
+        else:
+            print("No se encontraron direcciones")
+            self.directions_list=[]
+
+        if len(self.directions_list)<4:
+            directions_concatenated="\n".join(self.directions_list)
+            self.directions_list=directions_concatenated.split("\n")
+
         try:
             address_name=self.directions_list[0]
         except:
@@ -325,11 +338,12 @@ class AmazonSt:
         self.UrlPdf=self.page.locator("//span[@class='a-button-inner']/a[contains(text(), 'View invoice')]").get_attribute("href")    
         self.get_shipping_info()
         self.UrlPdf=self.urlMain+self.UrlPdf
-        try:
-            self.get_pdf()
-        except Exception as e:
-            print("Error al obtener PDF de la orden "+str(e))
-            self.view="detallesPedidos"
+        print("Obtención de PDF cancelada temporalmente")
+        # try:
+        #     self.get_pdf()
+        # except Exception as e:
+        #     print("Error al obtener PDF de la orden "+str(e))
+        #     self.view="detallesPedidos"
         self.createData()
     
     def save_to_csv(self):
