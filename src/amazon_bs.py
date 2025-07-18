@@ -145,6 +145,9 @@ class AmazonBs:
         summaryBill=self.page.locator(detallesPedidos.summaryConcept_list.selector).all_inner_texts()
         obj_bill={}
         for row in summaryBill:
+            if ":" not in row:
+                print("No se encontró ':' en la fila de la cuenta(Billing),saltando fila")
+                continue
             if row!="":
                 key,value=row.split(":")
                 obj_bill[key]=value
@@ -273,8 +276,13 @@ class AmazonBs:
     def get_shipping_info(self):
         try:
             self.page.wait_for_selector("div[class='a-fixed-left-grid-inner']")
-            self.shippings=self.page.locator("div[class*='a-box shipment'] div[class='a-box-inner']").all()
-            #self.shippings=self.page.locator("div[data-component='shipments'] div[class='a-box-inner']").all()
+            shippings1=self.page.locator("div[class*='a-box shipment'] div[class='a-box-inner']").all()
+            shippings2=self.page.locator("div[data-component='shipments'] div[class='a-box-inner']").all()
+            if len(shippings1)>0:
+                self.shippings=shippings1
+            elif len(shippings2)>0:
+                self.shippings=shippings2
+
             #self.shippings=self.page.locator("div[class='a-fixed-left-grid-inner']").all()
             # self.page.wait_for_selector("div[class='a-box shipment']")
             # self.shippings=self.page.locator("div[class*='a-box shipment']").all()
@@ -303,7 +311,21 @@ class AmazonBs:
                 dataShipping["courier"]=self.courier
             
     def get_adress_info(self):
-        self.directions_list=self.page.locator(detallesPedidos.directions_list.selector).all_inner_texts()
+
+        directions_list_1=self.page.locator(detallesPedidos.directions_list.selector).all_inner_texts()
+        directions_list_2=self.page.locator(detallesPedidos.directions_list2.selector).all_inner_texts()
+        if len(directions_list_1)>0:
+            self.directions_list=directions_list_1
+        elif len(directions_list_2)>0:
+            self.directions_list=directions_list_2
+        else:
+            print("No se encontraron direcciones")
+            self.directions_list=[]
+
+        if len(self.directions_list)<4:
+            directions_concatenated="\n".join(self.directions_list)
+            self.directions_list=directions_concatenated.split("\n")
+
         try:
             address_name=self.directions_list[0]
         except:
@@ -341,8 +363,10 @@ class AmazonBs:
         self.page.wait_for_selector(detallesPedidos.products_list.selector)
         try:
             order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct1.selector).inner_text().replace("Ordered on","").strip()
+        # except:
+        #     order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct2.selector).inner_text().split("N.º")[0].replace("Order","").strip()
         except:
-            order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct2.selector).inner_text().split("N.º")[0].replace("Order","").strip()
+            order_date=self.page.query_selector(detallesPedidos.dateOfDetailsProduct3.selector).inner_text().replace("Order Date:","").strip()
         self.order_date=datetime.strptime(order_date,date_format["eng"]).strftime("%d/%m/%Y")
         self.get_adress_info()
         try:
@@ -356,10 +380,10 @@ class AmazonBs:
             self.digitCards="No digits"
         self.get_bill_info()
         #self.UrlPdf=self.page.locator("//span[@class='a-button-inner']/a[contains(text(), 'Ver o Imprimir Recibo')]").get_attribute("href")    
-        self.UrlPdf=self.page.locator("//span[@class='a-list-item']/a[contains(text(),'Printable Order Summary')]").get_attribute("href") 
+        #self.UrlPdf=self.page.locator("//span[@class='a-list-item']/a[contains(text(),'Printable Order Summary')]").get_attribute("href") 
         self.get_shipping_info()
-        self.UrlPdf=self.urlMain+self.UrlPdf
-        self.get_pdf()
+        #self.UrlPdf=self.urlMain+self.UrlPdf
+        #self.get_pdf()
         self.createData()
     
     def save_to_csv(self):
