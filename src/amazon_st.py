@@ -325,7 +325,11 @@ class AmazonSt:
         self.UrlPdf=self.page.locator("//span[@class='a-button-inner']/a[contains(text(), 'View invoice')]").get_attribute("href")    
         self.get_shipping_info()
         self.UrlPdf=self.urlMain+self.UrlPdf
-        self.get_pdf()
+        try:
+            self.get_pdf()
+        except Exception as e:
+            print("Error al obtener PDF de la orden "+str(e))
+            self.view="detallesPedidos"
         self.createData()
     
     def save_to_csv(self):
