@@ -2,7 +2,7 @@ import configparser
 import os
 class configData:
     def __init__(self) -> None:
-        with open("pedidosAmazon\settings.ini") as f:
+        with open(r"pedidosAmazon\settings.ini") as f:
             lines=f.readlines()
             self.URLS_LINKS={}
             for line in lines:

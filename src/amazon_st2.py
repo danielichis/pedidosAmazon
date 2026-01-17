@@ -433,10 +433,13 @@ class AmazonSt:
             if len(self.page.query_selector_all("input[id='signInSubmit']"))>0:
                 print(f"La cuenta {self.acount} pide ingresar contraseña nuevamente")
                 time.sleep(2)
-                self.page.get_by_label("Contraseña").fill(credentials[account])
-                self.page.get_by_label("Iniciar sesión").click()
-                #exit()
-
+                try:
+                    self.page.get_by_label("Contraseña").fill(credentials[account])
+                    self.page.get_by_label("Iniciar sesión").click()
+                    #exit()
+                except:
+                    self.page.locator("input[type='password']").fill(credentials[account])
+                    self.page.locator("input[id='signInSubmit']").click()
             self.page.wait_for_selector(mainView.button_orders.selector)
             print(f"leyendo en cuenta:{self.acount}")
             self.scrap_account()

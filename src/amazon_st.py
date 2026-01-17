@@ -370,7 +370,15 @@ class AmazonSt:
         print("------------leyendo pagina")
         self.esperar_lista_paginas()
         orderCards_list=self.page.locator(pedidosOverview.orderCards_list.selector).all()
-        ordersLinks=[orderCard.locator("//a[contains(text(),'View order details')]").get_attribute("href") for orderCard in orderCards_list]
+        #ordersLinks=[orderCard.locator("//a[contains(text(),'View order details')]").get_attribute("href") for orderCard in orderCards_list]
+        ordersLinks=[]
+        for orderCard in orderCards_list:
+            try:
+                link=orderCard.locator("//a[contains(text(),'View order details')]").get_attribute("href")
+            except:
+                print("No se encontró link,saltando pedido...")
+                continue
+            ordersLinks.append(link)
         ordersIds=[orderCard.locator(pedidosOverview.orderIdOfCard.selector).inner_text() for orderCard in orderCards_list]
         try:
             ordersDates=[orderCard.locator(pedidosOverview.dateofCard.selector).inner_text() for orderCard in orderCards_list]
