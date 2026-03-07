@@ -479,6 +479,7 @@ class AmazonSt:
                 self.page.get_by_label("Password").fill(credentials[account])
                 self.page.get_by_label("Sign in").click()
                 #exit()
+                #continue
 
             self.page.wait_for_selector(mainView.button_orders.selector)
             print(f"leyendo en cuenta:{self.acount}")

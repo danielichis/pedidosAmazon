@@ -7,7 +7,7 @@ from pedidosAmazon.src.utils.readconfig import settingsData as stt
 from pedidosAmazon.src.utils.autoWaits import retry_on_exception
 from tqdm import tqdm
 from pedidosAmazon.src.interfaces import mainView,homeLogin,pedidosOverview,detallesPedidos,trakingView
-from pedidosAmazon.src.utils.functions import previusUrl
+from pedidosAmazon.src.utils.functions import previousUrl_bs, previusUrl
 from pedidosAmazon.src.utils.amazonScraping import get_sku_info
 from pedidosAmazon.src.utils.pdfScraping import extract_prod_condition_pdf
 from pedidosAmazon.credentials import credentials
@@ -471,7 +471,7 @@ class AmazonBs:
     def switch_to_tab(self,tab):
         if tab>1:
             self.page.locator(pedidosOverview.button_next.selector).click()
-            self.page.wait_for_selector(pedidosOverview.orderCards_list.selector)
+            self.page.wait_for_selector(pedidosOverview.orderCards_list_bs.selector)
             print(f"-----leyendo pagina {tab}")
         else:
             print(f"-----leyendo pagina {tab}")
@@ -495,7 +495,7 @@ class AmazonBs:
                 break
             tab+=1
             if self.view!="pedidosOverview":
-                Url=previusUrl(tab)
+                Url=previousUrl_bs(tab)
                 self.page.goto(Url,wait_until="load")
                 self.page.wait_for_load_state("load")
                 self.page.wait_for_load_state("networkidle")
